@@ -122,13 +122,6 @@ class CoSSplashModule : XposedModule() {
         @Volatile
         var CHANGE_BG_COLOR_TYPE = 0   // 0=不替换 / 1=从图标取色 / 2=莫奈取色 / 3=自定义
 
-        @Volatile
-        var ENABLE_ICON_BLUR_BG = false  // 图标背景模糊（尺寸由 BLUR_BG_SCALE 控制）
-
-        /** 模糊背景相对图标的放大倍率（百分比，50~300）。 */
-        @Volatile
-        var BLUR_BG_SCALE = 100
-
         /** 单个粒子自身的运动时长（毫秒）。 */
         @Volatile
         var PARTICLE_TIME_MS = 600
@@ -200,16 +193,13 @@ class CoSSplashModule : XposedModule() {
         const val KEY_BG_COLOR_MODE = "bg_color_mode"
         const val KEY_CUSTOM_BG_COLOR = "custom_bg_color"
         const val KEY_CUSTOM_BG_COLOR_NIGHT = "custom_bg_color_night"
-        const val KEY_ENABLE_ICON_BLUR_BG = "enable_icon_blur_bg"
-        const val KEY_BLUR_BG_SCALE = "blur_bg_scale"
         const val KEY_PARTICLE_TIME_MS = "exit_particle_time_ms"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
         const val KEY_REMOVE_ICON = "remove_icon"
 
-        /** 装饰层标识：模糊背景 / MD3E 几何形变。 */
-        const val TAG_BLUR_BG = "cse_blur_bg"
+        /** 装饰层标识：MD3E 几何形变。 */
         const val TAG_MORPH_SHAPE = "cse_morph_shape"
 
         /** 指示器取色方式。 */
@@ -397,8 +387,6 @@ class CoSSplashModule : XposedModule() {
             CUSTOM_BG_COLOR = prefs.getString(KEY_CUSTOM_BG_COLOR, "#FFFFFF") ?: "#FFFFFF"
             CUSTOM_BG_COLOR_NIGHT =
                 prefs.getString(KEY_CUSTOM_BG_COLOR_NIGHT, "#000000") ?: "#000000"
-            ENABLE_ICON_BLUR_BG = prefs.getBoolean(KEY_ENABLE_ICON_BLUR_BG, false)
-            BLUR_BG_SCALE = prefs.getInt(KEY_BLUR_BG_SCALE, 100).coerceIn(50, 300)
             PARTICLE_TIME_MS = prefs.getInt(KEY_PARTICLE_TIME_MS, 600).coerceIn(100, 2000)
             ENABLE_MORPH_SHAPE = prefs.getBoolean(KEY_ENABLE_MORPH_SHAPE, false)
             MORPH_SHAPE_SCALE = prefs.getInt(KEY_MORPH_SHAPE_SCALE, 100).coerceIn(50, 300)
@@ -423,7 +411,7 @@ class CoSSplashModule : XposedModule() {
                         "morph=$ENABLE_MORPH_SHAPE morph_scale=$MORPH_SHAPE_SCALE " +
                         "morph_color=$MORPH_SHAPE_COLOR_TYPE " +
                         "bg_type=$CHANGE_BG_COLOR_TYPE bg_mode=$BG_COLOR_MODE " +
-                        "blur_bg=$ENABLE_ICON_BLUR_BG hot_start=$ENABLE_HOT_START_SPLASH " +
+                        "hot_start=$ENABLE_HOT_START_SPLASH " +
                         "exit_anim=$EXIT_ANIM_MODE exit_duration=$EXIT_PARTICLE_DURATION_MS"
                 )
             }
@@ -1935,9 +1923,6 @@ class CoSSplashModule : XposedModule() {
         }
         val view = splashScreenView as FrameLayout
 
-        //   而 onPackageReady 早于 Application 创建，拿到的是 null —— 这个 null 被
-        //   一路传下去，addIconBlurBackground 第一行就静默 return 了，这正是
-        //   "blur_check 全绿、却既无 hook_hit 也无报错"的元凶。
         val appContext = view.context
         if (appContext == null) {
             log(Log.WARN, TAG, "event=hook_error id=apply_icon_decor source=$source reason=view_context_null")
@@ -1957,16 +1942,13 @@ class CoSSplashModule : XposedModule() {
 
         if (iconDecorApplied) return
 
-        //   没算出来，模糊就跟着一起失效（且没有任何报错）。现在解耦。
-        val needBlur = ENABLE_ICON_BLUR_BG
         val iconSize = appIconSize(cl)
         log(
             Log.INFO, TAG,
-            "event=blur_check source=$source enable=$ENABLE_ICON_BLUR_BG " +
-                "needShrink=$currentIsNeedShrinkIcon needBlur=$needBlur " +
+            "event=blur_check source=$source " +
+                "needShrink=$currentIsNeedShrinkIcon " +
                 "morph=$ENABLE_MORPH_SHAPE " +
                 "roundCorner=$DRAW_ROUND_CORNER hasIcon=${currentIconDrawable != null} " +
-                "hasBlurView=${findBlurView(view) != null} " +
                 "iconSize=$iconSize childCount=${view.childCount}"
         )
 
@@ -1975,16 +1957,10 @@ class CoSSplashModule : XposedModule() {
                 drawIconRoundCorner(cl, splashScreenView)
                 iconDecorApplied = true
             }
-            //   即使 build() 阶段加的模糊层被 ROM 重建子 View 清掉，
-            //   onAttachedToWindow 出口也能检测到"没有"并补上。
-            //
-            //   同时开会让图标底下糊成一团，所以开了形变就跳过模糊。
             if (ENABLE_MORPH_SHAPE) {
                 if (findTagView(view, TAG_MORPH_SHAPE) == null) {
                     addMorphShape(cl, view, source)
                 }
-            } else if (needBlur && findTagView(view, TAG_BLUR_BG) == null) {
-                addIconBlurBackground(cl, splashScreenView)
             }
         }.onFailure {
             log(Log.WARN, TAG, "event=hook_error id=apply_icon_decor source=$source", it)
@@ -2020,9 +1996,6 @@ class CoSSplashModule : XposedModule() {
         }
         return false
     }
-
-    /** 在 view 树里找我们加的模糊层。 */
-    private fun findBlurView(view: View): View? = findTagView(view, TAG_BLUR_BG)
 
     
     private fun addMorphShape(cl: ClassLoader, splashScreenView: FrameLayout, source: String) {
@@ -2525,154 +2498,6 @@ class CoSSplashModule : XposedModule() {
             log(Log.INFO, TAG, "event=hook_hit id=draw_icon_round_corner iconSize=$iconSize rate=$cornerRate")
         }.onFailure {
             log(Log.WARN, TAG, "event=hook_error id=draw_icon_round_corner", it)
-        }
-    }
-
-    /**
-     * 缩小图标后，在图标背后叠一层放大的模糊图标当背景
-     * （对应参考实现 IconHookHandler 里 build_SplashScreenViewBuilder 的 addAfterHook）。
-     */
-    private fun addIconBlurBackground(
-        cl: ClassLoader,
-        splashScreenView: Any?
-    ) {
-        if (splashScreenView !is FrameLayout) {
-            log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=view_not_framelayout")
-            return
-        }
-        val appContext = splashScreenView.context ?: hostAppContext()
-        if (appContext == null) {
-            log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=context_null")
-            return
-        }
-        log(
-            Log.INFO, TAG,
-            "event=hook_enter id=add_icon_blur_bg childCount=${splashScreenView.childCount} " +
-                "iconDrawable=${currentIconDrawable != null}"
-        )
-
-        runCatching {
-            // 取 mIconView：优先反射字段，失败则遍历子 View 兜底（部分 ROM 字段名不同）
-            var iconView = runCatching {
-                splashScreenView.javaClass.getDeclaredField("mIconView")
-                    .apply { isAccessible = true }
-                    .get(splashScreenView) as? ImageView
-            }.getOrNull()
-
-            if (iconView == null) {
-                for (i in 0 until splashScreenView.childCount) {
-                    val child = splashScreenView.getChildAt(i)
-                    if (child is ImageView) {
-                        iconView = child
-                        break
-                    }
-                }
-            }
-            if (iconView == null) {
-                log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=icon_view_not_found")
-                return
-            }
-            //   当前实际显示的 drawable（两条路都拿不到才放弃）。
-            val drawable = currentIconDrawable ?: iconView.drawable
-            if (drawable == null) {
-                log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=icon_drawable_null")
-                return
-            }
-            if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
-                log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=drawable_size_zero")
-                return
-            }
-
-            // 图标尺寸：优先系统资源；拿不到（部分 ROM 资源名不同）时按 108dp 兜底，
-            // 保证模糊层不会因为 size=0 而静默跳过。
-            var rawIconSize = appIconSize(cl)
-            if (rawIconSize <= 0) rawIconSize = dp2px(appContext, 108f)
-            val iconSize = (rawIconSize / 1.5).toInt()
-            if (iconSize <= 0) {
-                log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=icon_size_zero")
-                return
-            }
-            //   这也是"加了却像没加"的原因之一）。
-            val bgIconSize = (iconSize * 2 * (BLUR_BG_SCALE.coerceIn(50, 300) / 100f))
-                .toInt().coerceAtLeast(1)
-            val blurRadius = bgIconSize.toFloat() / 8
-
-            val blurBgDrawable = GraphicUtils.createShadowedIcon(
-                appContext,
-                drawable,
-                iconSize,
-                bgIconSize,
-                iconSize * iconRoundCornerRate / 100f
-            )
-            if (blurBgDrawable == null) {
-                log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=create_shadowed_icon_null")
-                return
-            }
-
-            val iconBlurBGView = ImageView(appContext).apply {
-                setImageDrawable(blurBgDrawable)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                alpha = 0.85f
-                tag = TAG_BLUR_BG
-                setRenderEffect(
-                    RenderEffect.createBlurEffect(
-                        blurRadius,
-                        blurRadius,
-                        Shader.TileMode.DECAL
-                    )
-                )
-                // 放到图标下面：既用 z 也用 elevation，确保不同 ROM 的绘制顺序都正确
-                z = -1f
-            }
-
-            splashScreenView.addView(
-                iconBlurBGView,
-                0,
-                FrameLayout.LayoutParams(bgIconSize, bgIconSize).apply { gravity = Gravity.CENTER }
-            )
-            alignToIconCenter(
-                splashScreenView, iconBlurBGView, iconView, bgIconSize, what = "blur"
-            )
-            iconView.alpha = 0.9f
-
-            log(
-                Log.INFO, TAG,
-                "event=hook_hit id=add_icon_blur_bg iconSize=$iconSize bgIconSize=$bgIconSize " +
-                    "childCount=${splashScreenView.childCount}"
-            )
-
-            //   导致刚加进去的模糊层被移除。下一帧再检查一次，丢了就补回来。
-            splashScreenView.post {
-                runCatching {
-                    var exists = false
-                    for (i in 0 until splashScreenView.childCount) {
-                        if (splashScreenView.getChildAt(i)?.tag == TAG_BLUR_BG) {
-                            exists = true
-                            break
-                        }
-                    }
-                    if (!exists) {
-                        splashScreenView.addView(
-                            iconBlurBGView,
-                            0,
-                            FrameLayout.LayoutParams(bgIconSize, bgIconSize).apply {
-                                gravity = Gravity.CENTER
-                            }
-                        )
-                        alignToIconCenter(
-                            splashScreenView, iconBlurBGView, iconView, bgIconSize, what = "blur_re"
-                        )
-                        log(
-                            Log.INFO, TAG,
-                            "event=hook_hit id=add_icon_blur_bg decision=re_add_after_build"
-                        )
-                    }
-                }.onFailure {
-                    log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg reason=re_add", it)
-                }
-            }
-        }.onFailure {
-            log(Log.WARN, TAG, "event=hook_error id=add_icon_blur_bg", it)
         }
     }
 

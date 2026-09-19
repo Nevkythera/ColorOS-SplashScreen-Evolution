@@ -34,11 +34,6 @@ data class CseConfig(
     
     val shrinkIcon: Int = SHRINK_NONE,
     val replaceIcon: Boolean = false,
-    val enableIconBlurBg: Boolean = false,
-
-    /** 模糊背景相对图标的放大倍率百分比（50~300，默认 100）。 */
-    val blurBgScale: Int = BLUR_BG_SCALE_DEFAULT,
-
     /** 单个粒子自身的运动时长（毫秒，100~2000，默认 600）。 */
     val particleTimeMs: Int = PARTICLE_TIME_DEFAULT,
     /**
@@ -85,14 +80,6 @@ data class CseConfig(
         const val EXIT_DURATION_MAX = 2000
         const val EXIT_DURATION_DEFAULT = 600
 
-        /** 模糊背景大小：范围与默认值（百分比，100 = 与图标相同倍率）。 */
-        const val BLUR_BG_SCALE_MIN = 50
-        const val BLUR_BG_SCALE_MAX = 300
-        const val BLUR_BG_SCALE_DEFAULT = 100
-
-        fun normalizeBlurBgScale(raw: Int): Int =
-            raw.coerceIn(BLUR_BG_SCALE_MIN, BLUR_BG_SCALE_MAX)
-
         /** 单个粒子的运动时长：范围与默认值（毫秒）。 */
         const val PARTICLE_TIME_MIN = 100
         const val PARTICLE_TIME_MAX = 2000
@@ -133,8 +120,6 @@ data class CseConfig(
         const val KEY_DRAW_ROUND_CORNER = "draw_round_corner"
         const val KEY_SHRINK_ICON = "shrink_icon"
         const val KEY_REPLACE_ICON = "replace_icon"
-        const val KEY_ENABLE_ICON_BLUR_BG = "enable_icon_blur_bg"
-        const val KEY_BLUR_BG_SCALE = "blur_bg_scale"
         const val KEY_PARTICLE_TIME_MS = "exit_particle_time_ms"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
@@ -172,10 +157,6 @@ class ConfigStore(context: Context) {
         drawRoundCorner = repo.getBoolean(CseConfig.KEY_DRAW_ROUND_CORNER, false),
         shrinkIcon = CseConfig.normalizeShrinkIcon(repo.getInt(CseConfig.KEY_SHRINK_ICON, 0)),
         replaceIcon = repo.getBoolean(CseConfig.KEY_REPLACE_ICON, false),
-        enableIconBlurBg = repo.getBoolean(CseConfig.KEY_ENABLE_ICON_BLUR_BG, false),
-        blurBgScale = CseConfig.normalizeBlurBgScale(
-            repo.getInt(CseConfig.KEY_BLUR_BG_SCALE, CseConfig.BLUR_BG_SCALE_DEFAULT)
-        ),
         particleTimeMs = CseConfig.normalizeParticleTime(
             repo.getInt(CseConfig.KEY_PARTICLE_TIME_MS, CseConfig.PARTICLE_TIME_DEFAULT)
         ),
@@ -203,11 +184,6 @@ class ConfigStore(context: Context) {
     fun setShrinkIcon(value: Int) =
         update(CseConfig.KEY_SHRINK_ICON, CseConfig.normalizeShrinkIcon(value))
     fun setReplaceIcon(value: Boolean) = update(CseConfig.KEY_REPLACE_ICON, value)
-    fun setEnableIconBlurBg(value: Boolean) = update(CseConfig.KEY_ENABLE_ICON_BLUR_BG, value)
-
-    fun setBlurBgScale(value: Int) =
-        update(CseConfig.KEY_BLUR_BG_SCALE, CseConfig.normalizeBlurBgScale(value))
-
     fun setParticleTimeMs(value: Int) =
         update(CseConfig.KEY_PARTICLE_TIME_MS, CseConfig.normalizeParticleTime(value))
     fun setEnableMorphShape(value: Boolean) = update(CseConfig.KEY_ENABLE_MORPH_SHAPE, value)

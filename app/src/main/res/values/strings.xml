@@ -73,11 +73,6 @@
     <string name="shrink_icon_desc">把启动图标缩小到规范尺寸，可与模糊背景配合使用</string>
     <string name="not_shrink_icon">不缩小</string>
     <string name="shrink_all_icon">缩小全部图标</string>
-    <string name="icon_blur_bg">模糊图标背景</string>
-    <string name="icon_blur_bg_desc">在图标背后叠加一层放大的高斯模糊背景</string>
-    <string name="icon_blur_bg_scale">模糊背景大小</string>
-    <string name="icon_blur_bg_scale_desc">模糊背景相对图标的放大倍率</string>
-    <string name="icon_blur_bg_scale_value">%1$.2f×</string>
     <string name="morph_shape">几何形变加载动画</string>
     <string name="morph_shape_desc">在图标背后播放 Material 3 Expressive 几何形变加载动画</string>
     <string name="morph_shape_size">指示器大小</string>

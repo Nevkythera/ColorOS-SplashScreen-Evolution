@@ -83,18 +83,6 @@ private fun IconPageContent(
         stringResource(R.string.shrink_all_icon)
     )
 
-    // ── 依赖关系（决定哪些条目可见 / 可用）────────────────────────────
-    // ① 「不缩小」时隐藏「模糊图标背景」，其余选项显示。
-    //    理由：不缩小图标时图标已按原始分辨率铺满，叠加模糊背板没有意义。
-    val showBlurBg = config.shrinkIcon != CseConfig.SHRINK_NONE
-
-    // ② 「几何形变加载动画」打开时，「模糊图标背景」置为不可用（变灰）。
-    //    理由：两者都要占用图标背后的同一块绘制区域，
-    //    而形变指示器优先级更高（Hook 层也是它先命中），
-    //    所以此处只做置灰提示，不改用户的开关值 ——
-    //    关掉动画后用户的原始选择应当原样恢复。
-    val blurBgEnabled = enabled && !config.enableMorphShape
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -104,7 +92,7 @@ private fun IconPageContent(
             .padding(top = TOP_BAR_SPACER, bottom = 16.dp)
     ) {
         // ==================== 「一般」列表组 ====================
-        // 顺序：绘制图标圆角 / 缩小图标 / 模糊图标背景 / 替换图标获取方式 /
+        // 顺序：绘制图标圆角 / 缩小图标 / 替换图标获取方式 /
         //
         //   竖向推挤过渡（详见 SplicedColumnGroup 文档）。
         SplicedColumnGroup(
@@ -136,45 +124,6 @@ private fun IconPageContent(
                             val value = shrinkValues.getOrElse(index) { CseConfig.SHRINK_NONE }
                             store.setShrinkIcon(value)
                             onConfigChange(config.copy(shrinkIcon = value))
-                        }
-                    )
-                }
-                entry(
-                    key = "icon_blur_bg",
-                    visible = showBlurBg
-                ) {
-                    SwitchWidget(
-                        iconRes = R.drawable.blur_on,
-                        title = stringResource(R.string.icon_blur_bg),
-                        description = stringResource(R.string.icon_blur_bg_desc),
-                        checked = config.enableIconBlurBg,
-                        enabled = blurBgEnabled,
-                        onCheckedChange = {
-                            store.setEnableIconBlurBg(it)
-                            onConfigChange(config.copy(enableIconBlurBg = it))
-                        }
-                    )
-                }
-                entry(
-                    key = "icon_blur_bg_scale",
-                    visible = showBlurBg && config.enableIconBlurBg
-                ) {
-                    SliderWidget(
-                        iconRes = R.drawable.blur_on,
-                        title = stringResource(R.string.icon_blur_bg_scale),
-                        description = stringResource(R.string.icon_blur_bg_scale_desc),
-                        value = config.blurBgScale / 100f,
-                        valueRange = 0.5f..3f,
-                        steps = 24,
-                        valueText = String.format(
-                            stringResource(R.string.icon_blur_bg_scale_value),
-                            config.blurBgScale / 100f
-                        ),
-                        enabled = blurBgEnabled,
-                        onValueChange = { v ->
-                            val pct = (v * 100).toInt().coerceIn(50, 300)
-                            store.setBlurBgScale(pct)
-                            onConfigChange(config.copy(blurBgScale = pct))
                         }
                     )
                 }

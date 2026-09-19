@@ -88,11 +88,6 @@
     <string name="shrink_icon_desc">Shrinks the startup icon to the standard size; can be combined with a blurred background</string>
     <string name="not_shrink_icon">Do not shrink</string>
     <string name="shrink_all_icon">Shrink all icons</string>
-    <string name="icon_blur_bg">Blur icon background</string>
-    <string name="icon_blur_bg_desc">Overlay an enlarged gaussian-blurred copy of the icon behind it</string>
-    <string name="icon_blur_bg_scale">Blur background size</string>
-    <string name="icon_blur_bg_scale_desc">Magnification of the blur background relative to the icon</string>
-    <string name="icon_blur_bg_scale_value">%1$.2f×</string>
     <string name="morph_shape">Morph-shaped loading indicator</string>
     <string name="morph_shape_desc">Play the Material 3 Expressive morph loading indicator behind the icon</string>
     <string name="morph_shape_size">Indicator size</string>

@@ -77,7 +77,6 @@ fun BasePanelPage(
             )
         }
     ) { paddingValues ->
-        // ★ 用 hazeSource 把页面内容标记为顶栏模糊的采样来源（之前漏了这一句，
         //   hazeEffect 没有内容可模糊，表现为"顶栏完全没有模糊"）。
         //   同时**去掉 top padding**：让内容延伸到顶栏下方（各页面内部用
         //   TOP_BAR_SPACER 占位），滚动时内容穿过顶栏，模糊才看得见。

@@ -18,7 +18,6 @@ import dev.chrisbanes.haze.HazeTint
  */
 @Composable
 fun baseHazeStyle(
-    // ★ 模糊半径从 30dp 降到 16dp：模糊开销与半径平方相关，
     //   30dp 时中低端机滚动会明显掉帧，16dp 视觉差别很小但性能好很多。
     blurRadius: Dp = 16.dp,
     containerColor: Color = MaterialTheme.colorScheme.background,

@@ -31,18 +31,7 @@ data class CseConfig(
     val masterSwitch: Boolean = true,
     val disablePreview: Boolean = true,
     val drawRoundCorner: Boolean = false,
-    /**
-     * 缩小图标：**只有两态**。
-     *
-     * ★ 早期有三态（0=不缩小 / 1=仅缩小低分辨率 / 2=全部），
-     *   「仅缩小低分辨率」因实用性极低已移除 ——
-     *   它的判定条件是 `图标固有宽度 < iconSize / 1.5`，而绝大多数应用的图标
-     *   本身就是自适应图标（`AdaptiveIconDrawable`，直接判定为 false），
-     *   所以这个选项在真机上几乎永远不会生效，属于无效功能。
-     *
-     * ⚠️ 值 `1` 现在是**历史遗留的无效值**。读取时统一经
-     *   [normalizeShrinkIcon] 归一化，写入时也归一化，保证状态永远干净。
-     */
+    
     val shrinkIcon: Int = SHRINK_NONE,
     val replaceIcon: Boolean = false,
     val enableIconBlurBg: Boolean = false,

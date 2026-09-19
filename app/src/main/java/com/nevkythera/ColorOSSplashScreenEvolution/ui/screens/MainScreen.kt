@@ -88,28 +88,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * 二级页顶栏占位高度：LargeTopAppBar 的 expandedHeight(128.dp) + 4.dp 间距。
- *
- * 内容区延伸到顶栏下方（顶栏半透明悬浮），首屏靠这个占位把内容顶到顶栏下面；
- * 向上滚动时内容会穿过顶栏区域，被 haze 模糊 —— 这就是"顶部模糊"的来源。
- *
- * ★ 主界面（首页/设置/关于三页签）与二级页**共用同一套几何**：
- *   大标题展开（128dp）→ 列表从大标题下方开始；滚动时折叠到 64dp 并保持不动，
- *   此后模糊区域固定不变，不再随列表拖动重采样（性能要求）。
- *   上一版把主界面顶栏压成 64dp 固定小标题，导致列表顶到状态栏正下方、
- *   大标题消失，与二级页观感完全不一致（用户指出"列表位置也不对"）。
- */
+
 internal val TOP_BAR_SPACER = 132.dp
 
-/**
- * 底部三个页签。图标用 MCGA 同款 Material Symbols 的 outline / filled 双态。
- *
- * ★ [labelRes] 存**字符串资源 id**，不是字面量 —— 早期版本把"首页/设置/关于"
- *   硬编码在枚举构造参数里，导致切英文后底部栏仍是中文
- *   （枚举是 `private enum class` 的静态常量，不参与重组，字符串也不会本地化）。
- *   标题同理，必须走 `stringResource()`。
- */
+
 private enum class Tab(
     @StringRes val labelRes: Int,
     val icon: Int,
@@ -148,7 +130,6 @@ fun MainScreen() {
     var isActive by remember { mutableStateOf(repo.isActive) }
     var framework by remember { mutableStateOf(repo.frameworkInfo()) }
 
-    // ★ 界面语言：索引即 LocaleManager 的 FOLLOW_SYSTEM / SIMPLIFIED_CHINESE / ENGLISH。
     //   真正的语言落地交给 AppCompatDelegate（见 LocaleManager），
     //   它会在 setApplicationLocales 后**自动重建 Activity**，
     //   重建后本状态会由 LocaleManager.current() 重新读回，因此这里只需记住索引。
@@ -159,7 +140,6 @@ fun MainScreen() {
         stringResource(R.string.language_en)
     )
 
-    // ★ 与二级页一致：exitUntilCollapsed —— 展开时显示大标题（列表从标题下方开始），
     //   向上滚动折叠到 64dp 后**保持不动**，模糊区域随之固定，
     //   不会在列表滚动过程中反复改变尺寸（性能要求）。
     val scrollBehavior = TopAppBarDefaults
@@ -192,7 +172,6 @@ fun MainScreen() {
 
     val current = Tab.entries[pagerState.currentPage]
 
-    // ★ 首页顶栏标题：固定缩短写 CSE（三语一致）。
     //   不能读 about_hero_title —— 它在英文下是 "COS SplashScreen Evolution"，
     //   放进只有一行的顶栏会被截成 "COS SplashScreen Evol…"，
     //   既难看又和「设置 / 关于」两个页签宽度不齐。
@@ -252,12 +231,10 @@ fun MainScreen() {
         )
     }
 
-    // ★ 主界面不再用 NavHost：三个页签由 HorizontalPager 承载，
     //   二级页（图标/背景/杂项）改为**独立 Activity**（PanelActivity），
     //   转场交给系统原生的 Activity 动画。
     //   这里只保留一层背景色容器 + Scaffold，结构比之前的 NavHost 简单一层。
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
-        // ★ 主界面顶栏背景模糊：顶栏施加 hazeEffect，
         //   下方 Pager 内容用 hazeSource 作为模糊来源（与二级页 BasePanelPage 一致）。
         val hazeState = rememberHazeState()
 
@@ -274,7 +251,6 @@ fun MainScreen() {
                                 endIntensity = 0f
                             )
                         },
-                        // ★ 与二级页同构：默认 expandedHeight(128dp)，展开时显示大标题，
                         //   折叠后固定为 64dp 小标题（模糊区域不再变化）。
                         title = {
                             Text(topBarTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -317,7 +293,6 @@ fun MainScreen() {
                     state = pagerState,
                     modifier = Modifier
                         .hazeSource(state = hazeState)
-                        // ★ 内容延伸到顶栏**下方**（只保留状态栏与底栏的避让），
                         //   这样顶栏的 haze 才有内容可采样 —— 否则顶栏背后永远是空白，
                         //   模糊自然"看不出效果"。各页面顶部用 TOP_BAR_SPACER 占位避免遮挡。
                         .windowInsetsPadding(WindowInsets.statusBars)
@@ -473,12 +448,10 @@ private fun HomePage(
                     )
                 }
                 entry("language") {
-                    // ★ 语言切换：跟随系统 / 简体中文 / English
                     //   顺序很重要 —— **先持久化，再重建**。
                     //   LocaleManager.apply() 内部会 recreate()，新 Activity 起来时
                     //   必须已经能读到新语言（由 persist 保证）。
                     ChoiceWidget(
-                        // ★ 用「语言」图标而非安卓机器人 —— 后者是"系统/平台"的语义，
                         //   放语言切换上会误导。
                         iconRes = R.drawable.language,
                         title = stringResource(R.string.language),
@@ -587,8 +560,6 @@ private fun SettingPage(
     store: ConfigStore
 ) {
     val masterEnabled = config.masterSwitch
-    // ★ 二级页现在由独立 Activity 承载，需要 Context 才能 startActivity。
-    //   ★ 这里**刻意用 LocalContext.current 而不是 LocalActivity.current** ——
     //     本 Composable 的宿主就是 MainActivity，二者解析到同一个实例；
     //     而 PanelActivity.start() 内部会判断 Context 是否为 Activity，
     //     据此决定要不要补 NEW_TASK（详细原因见该函数注释：
@@ -675,7 +646,6 @@ private fun SettingPage(
 private fun AboutPage(modifier: Modifier) {
     val context = LocalContext.current
 
-    // ★ 版本号 + 版本 ID 都从 PackageManager 自动读取，不再硬编码。
     //   格式：「0.3 · ID 33」—— versionName · versionCode。
     //   加版本 ID 的原因：用户/维护者自查问题时，光看 0.3 无法区分是第几次
     //   编译（同一 versionName 会对应多个内部构建），versionCode 才是唯一标识。
@@ -700,7 +670,6 @@ private fun AboutPage(modifier: Modifier) {
         // ---- 应用展示区（参照 COUI Expressive 的应用介绍页） ----
         // 主标题：应用名（中文名 / 英文名）；副行：互补的另一个名字 + 版本胶囊
         //
-        // ★ 副行必须与主标题**互补**，不能是同一个名字的两遍：
         //     - 中文环境：主标题「COS遮罩进化」 → 副行「CSE」      （补英文缩写）
         //     - 英文环境：主标题「COS SplashScreen Evolution」
         //                 → 副行「ColorOS SplashScreen Evolution」（补官方全称）
@@ -732,7 +701,6 @@ private fun AboutPage(modifier: Modifier) {
                 }
                 entry("coolapk") {
                     OptionWidget(
-                        // ★ 酷安 logo（矢量描摹自官方 branding 位图，见 drawable/coolapk.xml）
                         //   原用 dock_to_bottom_filled（通用 Material 图标），与品牌无关。
                         iconRes = R.drawable.coolapk,
                         title = stringResource(R.string.coolapk_homepage),
@@ -802,28 +770,7 @@ private fun AboutPage(modifier: Modifier) {
     }
 }
 
-/**
- * 关于页顶部的「应用展示区」—— 参照 COUI Expressive 的应用介绍页布局：
- *
- * ```
- *            ┌──────────┐
- *            │  应用图标  │   ← 图标背景形状与首页左上角一致
- *            └──────────┘      （RoundedCornerShape + ic_launcher_background）
- *             COS遮罩进化      ← 主标题（中文名）
- *               CSE           ← 英文缩写
- *    在 ColorOS 上恢复并自定义原生 SplashScreen 界面   ← 副标题
- *             0.3 · ID 33     ← 版本胶囊
- * ```
- *
- * ★ 图标背景必须与首页左上角一致：首页左上角用的是
- *   `RoundedCornerShape(9.dp)` + `colorResource(R.color.ic_launcher_background)`，
- *   这里按比例放大到 88dp 尺寸并保持同一形状。
- *
- * ★ 英文缩写 [appNameEn] 只在非空时渲染 —— 避免在只有一种语言的环境下
- *   出现一行空文本占位（导致标题下方多出一段莫名空白）。
- *
- * 文案全部由调用方从 strings.xml 传入，便于多语言切换。
- */
+
 @Composable
 private fun AboutHero(
     appName: String,

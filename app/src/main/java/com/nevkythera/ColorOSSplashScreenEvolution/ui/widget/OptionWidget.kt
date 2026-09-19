@@ -69,7 +69,6 @@ fun OptionWidget(
 
         Box(modifier = Modifier.weight(1f)) {
             Column {
-                // ★ 与 SwitchWidget 同理：右侧只有 12dp 箭头，标题区宽度确定，
                 //   不设 maxLines 让它自然折行（避免长英文标题被截断）。
                 Text(
                     text = title,

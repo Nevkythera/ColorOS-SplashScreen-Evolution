@@ -23,17 +23,7 @@ import androidx.palette.graphics.Palette
  */
 object GraphicUtils {
 
-    /**
-     * Drawable 图标转 Bitmap。
-     *
-     * ★ 本方法会**改动画笔目标 Drawable 的 bounds**（Android Drawable 的固有设计），
-     * 因此**绝不能对正在显示的图标 Drawable 直接调用** —— 那会把 64px 的 bounds
-     * 留在原图标上，导致图标被画成一小坨（"切换取色后图标显示异常"的根因）。
-     * 取色场景请用 [toSampleBitmap]，它自己在独立画布上按原尺寸绘制，不碰原 Drawable。
-     *
-     * @param drawable 待转换的 Drawable
-     * @param size     生成此大小的 Bitmap
-     */
+    
     fun drawable2Bitmap(drawable: Drawable, size: Int): Bitmap {
         if (drawable is BitmapDrawable) {
             return drawable.bitmap
@@ -46,20 +36,7 @@ object GraphicUtils {
         return bitmap
     }
 
-    /**
-     * ★ 只读取色的安全采样：把 Drawable 画到独立 Bitmap 上供 Palette 分析，
-     * **不改动原 Drawable 的任何状态**（bounds / alpha / colorFilter 全部还原）。
-     *
-     * 与 [drawable2Bitmap] 的区别：
-     *   - 按 Drawable **自身的 intrinsic 尺寸**等比缩放绘制（而非粗暴 setBounds）；
-     *   - 绘制前保存、绘制后**恢复** bounds，杜绝污染正在显示的图标；
-     *   - 对 `BitmapDrawable` 也不直接返回原 bitmap，而是拷一份只读副本，
-     *     避免调用方后续原地操作时污染系统图标。
-     *
-     * @param maxSize 采样位图最长边的上限（越大越准，越小越快），默认 64
-     * @param targetSize 采样位图的边长（正方），默认 64
-     * @return 采样位图；Drawable 无效时返回 null
-     */
+    
     fun toSampleBitmap(drawable: Drawable, targetSize: Int = 64): Bitmap? {
         val out = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
@@ -76,7 +53,6 @@ object GraphicUtils {
             out.recycle()
             return null
         } finally {
-            // ★ 无论成功失败都还原，绝不让原图标 Drawable 带伤
             runCatching {
                 drawable.bounds = oldBounds
                 drawable.alpha = oldAlpha

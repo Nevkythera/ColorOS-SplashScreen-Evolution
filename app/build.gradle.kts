@@ -14,8 +14,13 @@ android {
         applicationId = "com.Nevkythera.ColorOSSplashScreenEvolution"
         minSdk = 35
         targetSdk = 36
-        versionCode = 60
-        versionName = "0.4_pre-release"
+        versionCode = 61
+        versionName = "1.0"
+
+        // 仅打包 arm64-v8a 原生库
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
@@ -59,7 +64,6 @@ dependencies {
     // 模块设置界面侧的框架服务桥接：用于判定"模块是否已激活"
     // （XposedServiceHelper 绑定成功 = 已激活）、读写远程偏好。
     //
-    // 版本注意（踩坑记录）：
     //  - 102.0.0 的 AAR 元数据声明 minCompileSdk=37，而 AGP 8.13 上限是 36，
     //    直接依赖会报 "requires compile against version 37 or later"。
     //    已通过 gradle.properties 里的 android.experimental.disableCompileSdkChecks
@@ -79,7 +83,6 @@ dependencies {
 
     // 应用内语言切换（AppCompatDelegate.setApplicationLocales）。
     //
-    // ★ 只为 LocaleManager 提供 AppCompatDelegate / LocaleListCompat；
     //   本模块的 Activity 并不继承 AppCompatActivity（用的是 ComponentActivity +
     //   Compose 原生主题），所以 appcompat 不参与界面渲染，不会有主题冲突。
     //   若以后要换成纯 AndroidX 方案，可改用

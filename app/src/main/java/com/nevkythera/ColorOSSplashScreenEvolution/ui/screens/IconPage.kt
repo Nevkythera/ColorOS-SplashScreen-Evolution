@@ -69,11 +69,9 @@ private fun IconPageContent(
     enabled: Boolean
 ) {
     // ── 缩小图标：只有两态，且「选项索引」与「配置值」不是同一个数字 ──
-    //   ★ 为什么需要映射，不能直接用索引：
     //     配置值 `shrinkIcon` 是 CseConfig 的枚举值（0 = 不缩小 / 2 = 全部），
     //     中间值 1（仅缩小低分辨率）已移除，所以值域是 {0, 2} 而非 {0, 1}。
     //     下拉列表的 `index` 必须是连续的 0..n-1，两者不能混用。
-    //   ★ 早期版本恰好因为"选项索引 == 配置值"而可以直接传，
     //     删掉中间项后这个巧合不成立了 —— 若仍直接传索引，
     //     选「缩小全部图标」会写进 1（无效值），Hook 层判定为"不缩小"。
     val shrinkValues = listOf(
@@ -107,9 +105,7 @@ private fun IconPageContent(
     ) {
         // ==================== 「一般」列表组 ====================
         // 顺序：绘制图标圆角 / 缩小图标 / 模糊图标背景 / 替换图标获取方式 /
-        //       关闭截图覆盖 / 移除图标（★ 移除图标固定在最下方）
         //
-        // ★ 全部条目用固定 key 常驻列表，只切 visible —— 这样显隐才能播放
         //   竖向推挤过渡（详见 SplicedColumnGroup 文档）。
         SplicedColumnGroup(
             title = stringResource(R.string.group_general),
@@ -132,7 +128,6 @@ private fun IconPageContent(
                         iconRes = R.drawable.tile,
                         title = stringResource(R.string.shrink_icon),
                         description = stringResource(R.string.shrink_icon_desc),
-                        // ★ 索引 → 配置值的双向映射（两者不是同一个数字，理由见上方注释）
                         selectedIndex = shrinkValues.indexOf(config.shrinkIcon)
                             .coerceAtLeast(0),
                         options = shrinkOptions,
@@ -144,7 +139,6 @@ private fun IconPageContent(
                         }
                     )
                 }
-                // ★ 「不缩小」时隐藏本项（sel = 0）
                 entry(
                     key = "icon_blur_bg",
                     visible = showBlurBg
@@ -154,7 +148,6 @@ private fun IconPageContent(
                         title = stringResource(R.string.icon_blur_bg),
                         description = stringResource(R.string.icon_blur_bg_desc),
                         checked = config.enableIconBlurBg,
-                        // ★ 几何形变动画开启时置灰（但保留用户的开关值不动）
                         enabled = blurBgEnabled,
                         onCheckedChange = {
                             store.setEnableIconBlurBg(it)
@@ -211,7 +204,6 @@ private fun IconPageContent(
                         }
                     )
                 }
-                // ★ 移除图标：固定放在「一般」组最下方
                 entry("remove_icon") {
                     SwitchWidget(
                         iconRes = R.drawable.grid_off_filled,
@@ -246,7 +238,6 @@ private fun IconPageContent(
                         }
                     )
                 }
-                // ★ 打开指示器时这两项才会出现 —— 竖向推开过渡
                 entry(
                     key = "morph_size",
                     visible = config.enableMorphShape

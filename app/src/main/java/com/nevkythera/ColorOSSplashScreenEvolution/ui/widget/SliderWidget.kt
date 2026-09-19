@@ -64,9 +64,7 @@ fun SliderWidget(
         Box(modifier = Modifier.weight(1f)) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // ★ 标题用 weight(1f, fill = false)：值文本是固定字号的短串
                     //   （如 "1.20×"），不会争抢宽度，所以这里不需要上限逻辑。
-                    //   ★ 不设 maxLines —— 这个控件只用于「指示器大小」，
                     //     标题固定为「指示器大小 / Indicator size」，无需截断；
                     //     设了反而会在某些 ROM 的大字号 / 无障碍缩放下丢掉文字。
                     Text(

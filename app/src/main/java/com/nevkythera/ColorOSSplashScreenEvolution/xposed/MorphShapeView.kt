@@ -16,24 +16,7 @@ import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import kotlin.math.min
 
-/**
- * MD3 Expressive「加载指示器」—— 使用**安卓官方**的 `RoundedPolygon` / `Morph` 形状库，
- * 形状序列直接取自 `LoadingIndicatorDefaults.IndeterminateIndicatorPolygons`（7 个）：
- *   SoftBurst → Cookie9Sided → Pentagon → Pill → Sunny → Cookie4Sided → Oval
- *
- * ★ 动画时序照抄官方 `androidx.compose.material3.LoadingIndicator.kt`：
- *   - `GlobalRotationDurationMillis = 4666`：整体匀速旋转一圈（LinearEasing，无限 Restart）
- *   - `MorphIntervalMillis = 650`：每两次形变之间的间隔
- *   - `spring(dampingRatio=0.6f, stiffness=200f)`：单次形变的缓动
- *   - 每次形变完成后 `morphRotationTargetAngle = (x + 90) % 360`
- *   - 最终旋转角 = `morphProgress * 90 + morphRotationTargetAngle + globalRotation`
- *
- * 由于本模块运行在 SystemUI 进程（无 Compose 运行时），这里用 [ValueAnimator] 做心跳
- * 驱动重绘，所有状态由 [SystemClock.uptimeMillis] 推导，不依赖协程 / Compose。
- *
- * 形状插值用官方的 [Morph]，它内部对两个 RoundedPolygon 做顶点匹配并输出贝塞尔曲线，
- * 得到的就是官方 LoadingIndicator 一模一样的形变轮廓（而非之前的谐波近似）。
- */
+
 class MorphShapeView(context: Context) : View(context) {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -94,7 +77,6 @@ class MorphShapeView(context: Context) : View(context) {
         // 形状插值必须夹在 0..1；旋转项用未夹取的 raw 让过冲表现为回弹。
         val morphT = raw.coerceIn(0f, 1f)
 
-        // ★ 形变对索引：MORPHS 已预建好（含 wrap），这里直接取，避免每帧 new Morph
         val idx = (step % MORPHS.size).toInt()
         val morph = MORPHS[idx]
 
@@ -107,7 +89,6 @@ class MorphShapeView(context: Context) : View(context) {
         // 用官方 Morph 得到当前插值形状，写入 Path
         val baseSize = min(w, h) * 0.5f
         val cubics = morph.asCubics(morphT)
-        // ★ 实时质心对齐：对「这一帧实际绘制的形状」算质心，把它钉在旋转轴 (cx, cy) 上。
         //   任何时刻质心都精确等于旋转轴 → 旋转绝对稳定，五边形不再甩，
         //   也不存在预计算质心与 Morph 匹配后实际质心不一致的残差
         //   （实测 Pill/Cookie4 用 raw 质心会残差 1~1.5px）。
@@ -165,19 +146,7 @@ class MorphShapeView(context: Context) : View(context) {
         return floatArrayOf(cx, cy)
     }
 
-    /**
-     * 把官方 [Morph] 的插值结果（已由调用方算好）转成 android.graphics.Path。
-     *
-     * ★★ 旋转稳定性取决于「质心」对齐，而不是包围盒中心 ★★
-     *
-     * 实测（JVM 探针 + 渲染验证）：官方 7 形状坐标都在 [0,1]×[0,1]、包围盒中心都是
-     * (0.5,0.5)，但**质心不是** —— Pentagon（顶点朝上、底边朝下）质心偏下约 3%，
-     * 绕包围盒中心旋转时质心画圆，视觉上就是"只有五边形歪"。
-     *
-     * 因此平移中心用 [ccx],[ccy] —— 调用方对**当前帧实际形状**算出的实时质心，
-     * 把它对齐到视图中心；缩放仍用全形状统一跨度 [SHAPE_BOUNDS]（所有形状共用一个
-     * scale，形变时不抖、不缩放跳变）。
-     */
+    
     private fun buildPath(
         cubics: List<Cubic>,
         ccx: Float,
@@ -248,12 +217,7 @@ class MorphShapeView(context: Context) : View(context) {
         val BOUND_SAMPLES: FloatArray =
             floatArrayOf(0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1f)
 
-        /**
-         * ★ 官方形状序列：直接读 LoadingIndicatorDefaults.IndeterminateIndicatorPolygons。
-         *
-         * 实测这些形状坐标落在 [0,1]×[0,1]，中心 (0.5,0.5)，且 normalized() 幂等。
-         * 具体坐标系约定不再假设，统一由 [SHAPE_BOUNDS] 实测标定。
-         */
+        
         @OptIn(ExperimentalMaterial3ExpressiveApi::class)
         val POLYGONS: List<RoundedPolygon> =
             LoadingIndicatorDefaults.IndeterminateIndicatorPolygons
@@ -269,13 +233,7 @@ class MorphShapeView(context: Context) : View(context) {
             )
         }
 
-        /**
-         * ★ 全形状统一包围盒 [minX, minY, maxX, maxY]。
-         *
-         * 遍历每个形变对、在多个插值进度上采样 [Morph.asCubics] 的 anchor 点
-         * （anchor 是曲线真实经过的点；control 点只是贝塞尔控制柄，会让包围盒虚胖），
-         * 取全局 min/max。所有形状共用它做平移和缩放 → 形状中心恒定、大小不抖。
-         */
+        
         val SHAPE_BOUNDS: FloatArray = measureUnifiedBounds(MORPHS)
 
         init {

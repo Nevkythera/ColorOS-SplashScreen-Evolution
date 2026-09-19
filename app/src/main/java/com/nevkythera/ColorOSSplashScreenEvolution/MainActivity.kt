@@ -13,15 +13,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.util.LocaleManager
 
 class MainActivity : ComponentActivity() {
 
-    /**
-     * ★ 语言覆盖必须在这里做，而且**必须早于** `super.attachBaseContext()`——
-     *   否则 Resources 已经按旧语言初始化，Compose 拿到的就是旧文案。
-     *
-     * 为什么不能交给 AppCompatDelegate 自动处理：见 `LocaleManager` 类注释，
-     * API 33+ 它只把语言写进框架 LocaleManager，等 Activity 重建时才由
-     * ResourcesManager 应用；我们的 ComponentActivity + Compose 不会自己重建。
-     * 所以这里既**手动覆盖**，`LocaleManager.apply()` 里也**手动重建**。
-     */
+    
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocaleManager.wrap(newBase))
     }

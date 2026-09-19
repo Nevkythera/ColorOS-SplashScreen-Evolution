@@ -21,19 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.Nevkythera.ColorOSSplashScreenEvolution.R
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.CapsuleShapes
 
-/**
- * 「退出动画」选择对话框。
- *
- * ★ 为什么用**对话框**而不是 [com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.ChoiceWidget]
- *   的 `DropdownMenu`：用户明确要求「点击时显示对话框样式的选择界面，而不是浮动列表」。
- *
- * ★ 草稿值（[draftIndex]）用 `remember` 暂存，**点确定才回写**，
- *   因此点「取消」能真正撤销选择（不会像即时写回那样留下副作用）。
- *
- * @param options       选项文案（默认 / 粒子消失），下标即配置值
- * @param selectedIndex 当前选中项
- * @param onSelect      点确定后回传新的选中下标
- */
+
 @Composable
 fun ExitAnimDialog(
     title: String,

@@ -18,15 +18,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.StableEntry
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SwitchWidget
 
-/**
- * 杂项页。
- *
- * 目前承载「热启动也适用启动遮罩」开关 —— 该 Hook 位于 system_server
- * （com.android.server.wm.ActivityRecord），移植自 RestoreSplashScreen 的 AndroidHooker。
- *
- * ★ 使用前提：模块作用域必须勾选「系统框架（android）」，
- *   本模块已把 android 写进 resources/META-INF/xposed/scope.list 作为默认作用域。
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MiscPage(

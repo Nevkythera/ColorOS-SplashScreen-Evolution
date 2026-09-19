@@ -65,7 +65,6 @@ fun SwitchWidget(
 
         Box(modifier = Modifier.weight(1f)) {
             Column {
-                // ★ 标题**允许折行**，不设 maxLines：
                 //   这里的宽度是确定的（右侧 Switch 宽度固定，不参与争抢），
                 //   所以文字只会"该几行就几行"，不会出现 ChoiceWidget 那种
                 //   被压成竖排单字的情况。

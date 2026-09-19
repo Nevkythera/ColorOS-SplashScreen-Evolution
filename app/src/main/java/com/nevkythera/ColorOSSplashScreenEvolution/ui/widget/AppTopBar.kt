@@ -62,7 +62,6 @@ fun AppTopBar(
         modifier = modifier.padding(start = 6.dp),
         navigationIcon = {
             if (isHomePage) {
-                // ★ 首页导航位放应用图标。前景 vector 现在是白色，直接画在浅色背景上
                 //   会"隐形"（用户截图里的白色残影），所以垫一层启动器同款深色背景，
                 //   外观与桌面图标一致。
                 Box(

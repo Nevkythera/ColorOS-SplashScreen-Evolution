@@ -73,7 +73,6 @@ private fun BackgroundPageContent(
     onConfigChange: (CseConfig) -> Unit,
     enabled: Boolean
 ) {
-    // ★ 已删除「从图标取色」选项（值 1 已废弃，因该功能在 ColorOS 上取色不生效）。
     //   保留底层枚举值不变（0=不替换 / 2=莫奈 / 3=自定义），仅在 UI 层做索引↔值映射。
     //   避免改动已存配置、破坏老用户升级后的设置。
     val changeBgValueList = listOf(0, 2, 3)
@@ -118,7 +117,6 @@ private fun BackgroundPageContent(
         )
     }
 
-    // ★ 用稳定槽位：条件显隐的条目常驻列表、只切 visible，
     //   这样"多出/收起一个设置块"会播竖向推挤过渡而非瞬间增删。
     val items = buildList {
         entry("change_bg_color") {

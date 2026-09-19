@@ -7,6 +7,8 @@
 
 此项目使用AI辅助制作，虽能保证不包含人工输入的恶意代码，但无法保证AI产生的代码符合预期效果。
 
+模块灵感源于[RestoreSplashScreen / 启动遮罩进化](https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose)对SplashScreen的高度自定义展现的可能性。
+
 ## 免责声明
 
 - 本模块需要 **LSPosed（支持 libxposed API 102）** 与 **Root** 环境，
@@ -67,10 +69,10 @@ gradle :app:assembleRelease
 
 | 项目 | 作者 | 用途 |
 |---|---|---|
-| [RestoreSplashScreen / 启动遮罩进化](https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose) | GSWXXN | 启动遮罩 Hook 思路 |
-| [MCGA](https://github.com/JiaGuZhuangZhi/MCGA) | — | 设置界面与组件结构参考 |
-| [Telegram](https://github.com/DrKLO/Telegram) 的「删除消息」尘埃效果 | Telegram FZ-LLC | 退出动画（粒子消散）的算法原型 |
-| [Aghajari/ThanosEffect](https://github.com/Aghajari/ThanosEffect) | Amir Hossein Aghajari | 上述效果的复刻；粒子更新公式与随机参数参考 |
+| [RestoreSplashScreen / 启动遮罩进化](https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose) | GSWXXN | 启动遮罩 Hook 思路与灵感 |
+| [MCGA](https://github.com/JiaGuZhuangZhi/MCGA) | JiaGuZhuangZhi | 设置界面与组件结构参考 |
+| [Telegram](https://github.com/DrKLO/Telegram) | Telegram FZ-LLC | 实现粒子尘埃效果 |
+| [Aghajari/ThanosEffect](https://github.com/Aghajari/ThanosEffect) | Amir Hossein Aghajari | 上述效果的复刻与参考 |
 
 ## 许可
 

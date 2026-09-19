@@ -1,83 +1,78 @@
-# COS遮罩进化（CSE — ColorOSSplashScreenEvolution）
+# COS遮罩进化
 
-ColorOS / OxygenOS 上的 **Android 原生启动遮罩（Splash Screen）还原模块**，
-基于 **LSPosed / libxposed API 102**。
+> Module ID: `com.Nevkythera.ColorOSSplashScreenEvolution`
 
-> **许可证：GPL-3.0**
+一个针对 ColorOS 的**启动遮罩（SplashScreen）还原与自定义模块**，把被 ColorOS
+改写成 XML 预览图的开机画面还原为 Android 原生启动遮罩，并提供图标、背景与退出动画的自定义能力。
 
-> ## 🚨 接手本项目请先读交接文档（**不在仓库内**）
->
-> 交接文档 `agent.md`、签名密钥等敏感文件已移出仓库，位于
-> `CSE-private/`（与仓库同级）。那份文档包含构建环境、签名凭据、Hook 点位全图、
-> **血泪踩坑清单**、持久化决策与全部关键约定。**不读会浪费几小时。**
+此项目使用AI辅助制作，虽能保证不包含人工输入的恶意代码，但无法保证AI产生的代码符合预期效果。
 
----
+## 免责声明
 
-## 快速开始
+- 本模块需要 **LSPosed（支持 libxposed API 102）** 与 **Root** 环境，
+  作用域必须勾选 `com.android.systemui` 与「系统框架（android）」。
+- 本项目仅在 ColorOS 16.1 设备（一加Ace5至尊版）上测试，其它机型与系统版本请自行测试。
+- **风险提示**，请勿在未备份的主力机上贸然使用。因使用本模块导致的任何后果由使用者自负。
+- 部分功能需重启系统界面（设置页右上角）或重启设备后生效。
+
+## 主要功能
+
+### 图标
+
+- 绘制图标圆角
+- 缩小图标（不缩小 / 缩小全部图标）
+- 模糊图标背景，并可**调节模糊背景大小**（0.50× ~ 3.00×）
+- 替换图标获取方式（跟随主题图标包）
+- 关闭截图覆盖（忽略应用自带启动图）
+- 移除图标（隐藏启动遮罩上的全部图标，含底部品牌图）
+- **Material 3 Expressive 几何形变加载动画**
+
+### 背景
+
+- 替换背景颜色：不替换 / Material You 动态取色 / 自定义颜色
+- 颜色模式：浅色 / 暗色 / 跟随系统
+- 自定义背景颜色（浅色、暗色分别设置）
+
+### 动画
+
+- 退出动画效果：（实验性）
+
+### 杂项
+
+- 热启动也适用启动遮罩（应用从后台恢复时同样显示启动遮罩，而非任务快照）（实验性）
+
+### 应用配置
+
+- 显示桌面图标
+- 应用内语言切换（跟随系统 / 简体中文 / English）
+
+### 关于
+
+- 模块激活状态与框架信息
+- Root 管理器与版本检测
+- 设备信息、鸣谢与开源地址
+
+## 构建
 
 ```bash
-# 0) 确认 Android SDK 位置（应为 /opt/android-sdk）
-cat local.properties
+# 需要 Android SDK（platform 36 / build-tools 36.0.0）与 JDK 17+
+# 版本号在 app/build.gradle.kts 的 defaultConfig，
+# 并需同步 app/src/main/resources/META-INF/xposed/module.prop
 
-# 1) 版本号 +1 —— 编辑 app/build.gradle.kts 的 versionCode
-#    并同步 app/src/main/resources/META-INF/xposed/module.prop
-
-# 2) 编译
-gradle :app:assembleRelease --offline
-
-# 3) 对齐 + 签名（密钥不在仓库内，见 CSE-private/keys/cscr-new.jks）
-BT=/opt/android-sdk/build-tools/36.0.0
-$BT/zipalign -f 4 app/build/outputs/apk/release/app-release-unsigned.apk /tmp/aligned.apk
-$BT/apksigner sign --ks ../../CSE-private/keys/cscr-new.jks --ks-key-alias cscr \
-  --ks-pass pass:<STORE_PASSWORD> --key-pass pass:<STORE_PASSWORD> \
-  --out releases/CSE-<version>-release-<MMDD-HHMM>.apk /tmp/aligned.apk
-
-# 4) 验证签名（SHA-256 必须匹配文档中记录的指纹）
-$BT/apksigner verify --print-certs releases/CSE-*.apk | head -6
+gradle :app:assembleRelease
 ```
 
-## 目录说明
+## 参考与致谢
 
-| 目录 | 内容 |
-|---|---|
-| `app/` | 应用与 Hook 模块源码 |
-| `docs/` | 版本构建记录、签名说明（**交接文档 agent.md 已移出仓库**） |
-| `CSE-private/`（与仓库同级） | **敏感文件**：签名密钥 `keys/`、交接文档 `agent.md`（不入仓库） |
-| `releases/` | 历史 APK 归档 |
+本项目为 **GPL-3.0** 许可。以下项目在思路、公式或素材层面被参考：
 
-## 关键信息速查
+| 项目 | 作者 | 用途 |
+|---|---|---|
+| [RestoreSplashScreen / 启动遮罩进化](https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose) | GSWXXN | 启动遮罩 Hook 思路 |
+| [MCGA](https://github.com/JiaGuZhuangZhi/MCGA) | — | 设置界面与组件结构参考 |
+| [Telegram](https://github.com/DrKLO/Telegram) 的「删除消息」尘埃效果 | Telegram FZ-LLC | 退出动画（粒子消散）的算法原型 |
+| [Aghajari/ThanosEffect](https://github.com/Aghajari/ThanosEffect) | Amir Hossein Aghajari | 上述效果的复刻；粒子更新公式与随机参数参考 |
 
-| 项目 | 值 |
-|---|---|
-| 包名 | `com.Nevkythera.ColorOSSplashScreenEvolution` |
-| 内部代号 | `CSE`（日志 TAG / 视图 tag / 偏好名前缀） |
-| 当前版本 | versionName `0.3` / versionCode 见 `app/build.gradle.kts` |
-| 作用域 | `com.android.systemui` + `android`（系统框架） |
-| 签名 SHA-256 | `b5cddac72e84be1f34195fc0ad22944bbe2c5f2e675d17365ad427aaebe25ca0` |
-| 最低版本 | LSPosed 支持 libxposed API 102 的版本；Android 15+（minSdk 35） |
+## 许可
 
-## 参考与致谢（第三方思路 / 素材来源）
-
-本项目为 **GPL-3.0** 许可。以下项目在**思路、公式与参数**层面被参考
-（除另有说明外，未直接复制其代码）：
-
-| 项目 | 作者 | 许可证 | 用途 |
-|---|---|---|---|
-| [Telegram Android](https://github.com/DrKLO/Telegram) 的「删除消息」尘埃粒子效果 | Telegram FZ-LLC | 见上游仓库 | 粒子消散效果的**原始设计与算法** |
-| [Aghajari/ThanosEffect](https://github.com/Aghajari/ThanosEffect) | Amir Hossein Aghajari | 作者声明 MIT | 上述效果的复刻；本模块退出动画的**粒子更新公式与随机参数范围**取自其公开 README 与源码 |
-| [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) | GSWXXN | 见上游仓库 | 启动遮罩 Hook 思路 |
-| [JiaGuZhuangZhi/MCGA](https://github.com/JiaGuZhuangZhi/MCGA) | — | 见上游仓库 | 设置界面与组件结构参考 |
-
-> ⚠️ **发布前必看**：`Aghajari/ThanosEffect` 仓库内**没有 LICENSE 文件**，
-> 其 MIT 许可目前仅由作者在上游页面声明。正式发布前请**再次确认**，
-> 并按其要求附上许可证全文与署名。
-
-## 退出动画（粒子消散）说明
-
-设置页 → 动画 → 退出动画，可选「默认」（系统原生 ripple）或「粒子消失」。
-粒子消散按 Telegram 官方算法实现（见上方致谢）；渲染为**普通 View + Canvas**：
-
-- 粒子数按 `perPx` 动态计算，上限 **40000**；
-- 绘制按 (颜色 × alpha × 半径) 分桶后用 `Canvas.drawPoints` 批量提交；
-- ⚠️ **不可用 GL/SurfaceView**：本视图位于起始窗口（StartingWindow）的
-  `SplashScreenView` 之下，SurfaceView/GLSurfaceView 的独立表面无法创建（已实测失败）。
+[GPL-3.0](LICENSE)

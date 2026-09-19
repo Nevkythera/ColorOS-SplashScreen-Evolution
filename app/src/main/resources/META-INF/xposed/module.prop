@@ -1,0 +1,15 @@
+# LSPosed / libxposed API 102 模块元数据
+# 作用域见同目录 scope.list
+
+id=com.Nevkythera.ColorOSSplashScreenEvolution
+name=COS遮罩进化
+version=0.4_pre-release
+versionCode=60
+author=Nevkythera
+description=自定义 ColorOS 的 Splash Screen
+
+minApiVersion=102
+targetApiVersion=102
+staticScope=true
+exceptionMode=protective
+autoHotReload=false

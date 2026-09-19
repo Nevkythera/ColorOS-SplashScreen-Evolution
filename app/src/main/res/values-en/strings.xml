@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    English localization.
+
+    Terminology convention (agreed with the project owner):
+    - 遮罩 / 启动遮罩  -> "SplashScreen" (the platform's native splash screen surface),
+                         NOT the literal "mask"/"overlay". Chinese sources in this
+                         module occasionally use 遮罩 loosely to mean any startup
+                         cover, but the technical referent is always Android's
+                         SplashScreen API surface.
+    - 热启动          -> "warm start" (activity already alive in the background)
+    - 冷启动          -> "cold start"
+    - 莫奈 / 动态取色 -> "Material You dynamic color"
+    - 几何形变        -> "morph" (Material 3 Expressive morph-shaped loading indicator)
+    - 指示器          -> "indicator"
+-->
+<resources>
+    <string name="app_name">COS SplashScreen Evolution</string>
+    <string name="module_name">COS SplashScreen Evolution</string>
+    <string name="module_description">Customize the Splash Screen on ColorOS</string>
+
+    <!-- Activation state -->
+    <string name="activated">Activated</string>
+    <string name="module_not_activated">Module not activated</string>
+    <string name="root_not_available">Root access unavailable</string>
+    <string name="activation_hint">Enable this module in LSPosed and select the following scopes: com.android.systemui and System Framework (android)</string>
+
+    <!-- Group titles -->
+    <string name="group_app_config">App configuration</string>
+    <string name="group_module_function">Module features</string>
+    <string name="group_about">About</string>
+    <string name="group_author">Author</string>
+    <string name="group_predecessors">Credits</string>
+    <string name="group_device_info">Device information</string>
+    <string name="group_general">General</string>
+    <string name="group_personalize">Personalization</string>
+    <string name="group_credits">Credits</string>
+
+    <!-- Bottom tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_setting">Settings</string>
+    <string name="tab_about">About</string>
+
+    <!-- App configuration -->
+    <string name="root_manager">Root manager</string>
+    <string name="root_manager_version">Root manager version</string>
+    <string name="show_launcher_icon">Show launcher icon</string>
+
+    <!-- Device information -->
+    <string name="android_version">Android version</string>
+    <string name="device_model">Device model</string>
+
+    <!-- Module features -->
+    <string name="force_native_sc">Master switch</string>
+    <string name="force_native_sc_desc">Force the use of the native Android SplashScreen API</string>
+    <string name="disable_snapshot_overlay">Disable snapshot overlay</string>
+    <string name="disable_snapshot_overlay_desc">Ignore the app\'s built-in launch image and show the system\'s native large icon instead</string>
+
+    <!-- Feature entries -->
+    <string name="feature_icon">Icon</string>
+    <string name="feature_icon_desc">Icon style, size and retrieval method</string>
+    <string name="feature_background">Background</string>
+    <string name="feature_background_desc">Replace the SplashScreen background color</string>
+    <string name="feature_animation">Animation</string>
+    <string name="feature_animation_desc">Transition animations for startup and exit</string>
+    <string name="feature_misc">Miscellaneous</string>
+    <string name="feature_misc_desc">Advanced options such as warm-start behavior</string>
+
+    <!-- Animation page / Exit animation page -->
+    <string name="exit_animation">Exit animation</string>
+    <string name="exit_animation_desc">Animation played when the SplashScreen disappears</string>
+    <string name="exit_anim_mode">Exit animation effect</string>
+    <string name="exit_anim_default">Default</string>
+    <string name="exit_anim_particle">Particle diffusion</string>
+    <string name="exit_anim_dissolve">Particle dissolve</string>
+    <string name="exit_particle_params">Particle parameters</string>
+    <string name="exit_particle_duration">Animation duration</string>
+    <string name="exit_particle_duration_desc">Duration of the particle dissolve animation</string>
+    <string name="exit_particle_duration_value">%1$d ms</string>
+    <string name="exit_particle_speed">Particle speed</string>
+    <string name="exit_particle_speed_desc">Motion duration of each individual particle</string>
+    <string name="exit_particle_speed_value">%1$d ms</string>
+
+    <!-- Icon page -->
+    <string name="draw_round_corner">Round icon corners</string>
+    <string name="draw_round_corner_desc">Draw rounded corners on the icon shown on the SplashScreen</string>
+    <string name="shrink_icon">Shrink icon</string>
+    <string name="shrink_icon_desc">Shrinks the startup icon to the standard size; can be combined with a blurred background</string>
+    <string name="not_shrink_icon">Do not shrink</string>
+    <string name="shrink_all_icon">Shrink all icons</string>
+    <string name="icon_blur_bg">Blur icon background</string>
+    <string name="icon_blur_bg_desc">Overlay an enlarged gaussian-blurred copy of the icon behind it</string>
+    <string name="icon_blur_bg_scale">Blur background size</string>
+    <string name="icon_blur_bg_scale_desc">Magnification of the blur background relative to the icon</string>
+    <string name="icon_blur_bg_scale_value">%1$.2f×</string>
+    <string name="morph_shape">Morph-shaped loading indicator</string>
+    <string name="morph_shape_desc">Play the Material 3 Expressive morph loading indicator behind the icon</string>
+    <string name="morph_shape_size">Indicator size</string>
+    <string name="morph_shape_size_desc">Indicator diameter as a multiple of the icon size</string>
+    <string name="morph_shape_size_value">%.2f×</string>
+    <string name="morph_shape_color">Indicator color</string>
+    <string name="morph_shape_color_desc">Where the indicator takes its color from</string>
+    <string name="morph_color_monet">Follow system color</string>
+    <string name="morph_color_icon">Follow app icon (experimental)</string>
+    <string name="replace_icon">Replace icon retrieval method</string>
+    <string name="replace_icon_desc">Retrieve the icon through a system interface instead, so it follows themed icon packs</string>
+
+    <!-- Background page -->
+    <string name="change_bg_color">Replace background color</string>
+    <string name="not_change_bg_color">Do not replace background color</string>
+    <string name="from_icon">Sample from icon</string>
+    <string name="from_monet">Material You dynamic color</string>
+    <string name="from_custom">Custom color</string>
+    <string name="color_mode">Color mode</string>
+    <string name="light_color">Light</string>
+    <string name="dark_color">Dark</string>
+    <string name="follow_system">Follow system</string>
+    <string name="set_custom_bg_color">Custom background color</string>
+    <string name="set_custom_bg_color_light">Custom light color</string>
+    <string name="set_custom_bg_color_dark">Custom dark color</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+
+    <!-- Miscellaneous page -->
+    <string name="misc_placeholder">Coming soon</string>
+    <string name="remove_icon">Remove icon</string>
+    <string name="remove_icon_desc">Hide every icon on the SplashScreen, including the branding image at the bottom</string>
+    <string name="enable_hot_start_splash">Apply SplashScreen to warm starts</string>
+    <string name="enable_hot_start_splash_desc">Also show the SplashScreen when an app is restored from the background, instead of using its task snapshot</string>
+
+    <!-- About -->
+    <string name="module_version">Module version</string>
+    <string name="open_source_address">Source code</string>
+    <string name="open_source_url">https://github.com/Nevkythera/ColorOS-SplashScreen-Evolution</string>
+    <string name="coming_soon">Coming soon</string>
+    <string name="module_author">Module author</string>
+    <string name="coolapk_homepage">Coolapk profile</string>
+
+    <!-- About hero (top of the About page) -->
+    <string name="about_hero_title">COS SplashScreen Evolution</string>
+    <!--
+        Secondary line shown under the main title.
+        ★ 英文环境下这里显示**全称**而非缩写 CSE —— 因为主标题本身已经是
+          "COS SplashScreen Evolution"，再放一个 CSE 反而信息重复；
+          而中文环境下主标题是"COS遮罩进化"，缩写 CSE 才起到补全英文名的作
+          用。见 MainScreen 里决定取哪个字符串的分支。
+    -->
+    <string name="about_hero_title_en">ColorOS SplashScreen Evolution</string>
+    <!-- Short form fixed to the CSE acronym; used by the Home top app bar (see values/strings.xml) -->
+    <string name="about_hero_short" translatable="false">CSE</string>
+    <string name="about_hero_subtitle">Restore and customize the native SplashScreen on ColorOS</string>
+    <string name="about_hero_subtitle_en">Restore and customize the native SplashScreen on ColorOS</string>
+    <!-- Version suffix, rendered as "1.1(60)" — version name + version ID in parentheses -->
+    <string name="about_version_with_id">%1$s(%2$d)</string>
+
+    <!-- Language switcher (App configuration) -->
+    <string name="language">Language</string>
+    <string name="language_desc">Set the display language of the module interface</string>
+    <string name="language_follow_system">Follow system</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_en">English</string>
+
+    <!-- Credits -->
+    <string name="credits_title">Credits</string>
+    <string name="credits_desc">The following projects provided reference and inspiration for this module — please consider supporting them</string>
+    <string name="project_splash_evolution">SplashScreen Evolution</string>
+    <string name="project_splash_evolution_url">https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose</string>
+    <string name="project_mcga">MCGA</string>
+    <string name="project_mcga_url">https://github.com/JiaGuZhuangZhi/MCGA</string>
+
+    <!-- Restart menu -->
+    <string name="restart_systemui">Restart System UI</string>
+    <string name="restart_confirm_message">Restart System UI?</string>
+    <string name="restart_done">System UI restart requested</string>
+    <string name="restart_failed">Restart failed: root access required</string>
+
+    <!-- Common states / dialogs -->
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_confirm">OK</string>
+    <string name="state_detecting">Detecting…</string>
+    <string name="switch_failed">Switch failed, please try again</string>
+    <string name="root_not_detected">Not detected</string>
+    <string name="root_unknown_scheme">Unknown root solution</string>
+    <string name="root_unknown_version">Unknown</string>
+    <string name="value_none">—</string>
+</resources>

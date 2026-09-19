@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「语言 / 翻译」图标 —— 用于「应用配置」组下的语言切换条目。
+
+  图形语义：一个「文」字框（左侧）+ 三条横线（右侧），即 Material Symbols 的
+  `translate`。相比 Android 机器人图标，它表达的是"语言/翻译"而非"平台"，
+  放在语言切换上语义才对。
+
+  ★ 规格与其它图标一致：960 viewport / 满格填充 / 白色靠 tint 染色。
+  ★ fillType 不用 evenOdd —— 这里没有需要挖空的复合路径，
+    各项之间是独立的正形，用默认的 nonZero 即可。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <!-- 左侧「文」框：上方一横，其下是"文"的撇捺结构抽象为方框 -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M440,880L124,880Q90,880 65,855Q40,830 40,796L40,244Q40,210 65,185Q90,160 124,160L360,160L360,80L440,80L440,160L676,160Q710,160 735,185Q760,210 760,244L760,436Q760,470 735,495Q710,520 676,520L440,520L440,880ZM440,440L440,240L124,240L124,440L440,440ZM440,796L440,520L124,520L124,796L440,796ZM520,360L520,280L920,280L920,360L520,360ZM520,560L520,480L920,480L920,560L520,560ZM520,760L520,680L920,680L920,760L520,760Z" />
+</vector>

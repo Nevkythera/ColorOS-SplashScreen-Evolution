@@ -1,0 +1,25 @@
+# 构建产物
+build/
+app/build/
+.gradle/
+.kotlin/
+*.apk
+*.idsig
+
+# 本机配置
+local.properties
+
+# 敏感文件（不进仓库）：签名密钥、交接文档
+keys/
+*.jks
+*.keystore
+docs/agent.md
+
+# IDE
+.idea/
+*.iml
+
+# AI 记忆与附件（非仓库内容）
+.aicode/
+# 签名说明（含口令，已移出仓库）
+docs/签名说明-SIGNING.md

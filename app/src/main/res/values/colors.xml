@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      自适应启动图标背景。
+      使用 Monet 动态取色的系统主题色（system_accent1_* 由 Android 12+ 按壁纸生成），
+      使桌面图标背景随系统取色变化。低于 Android 12 时回退到静态紫。
+    -->
+    <!--
+      自适应启动图标背景：Monet 深色背景（原为强调色紫 #FF4F378B，偏亮）。
+      改为深色后与白色前景图标形成清晰对比，也更贴近 Monet 深色配色。
+    -->
+    <color name="ic_launcher_background">#FF1D192B</color>
+</resources>

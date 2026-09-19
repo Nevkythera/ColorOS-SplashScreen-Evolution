@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:description="@string/module_description"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.CSE"
+        tools:targetApi="31">
+
+        <!--
+            真正的应用入口，**不声明 LAUNCHER**。
+            桌面图标由下面的 LauncherAlias 控制显隐，
+            这样 App 可以在运行时用 setComponentEnabledSetting 切换图标开关。
+
+            同时声明 MODULE_SETTINGS category 并 exported=true，
+            让 LSPosed 管理器在模块列表里能点击「打开」直接跳进本 App 主界面。
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.CSE">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            桌面图标别名。应用名"COS遮罩进化"挂在这里。
+            用户关闭"显示应用桌面图标"后，本组件被禁用，图标立即从桌面消失。
+        -->
+        <activity-alias
+            android:name=".LauncherAlias"
+            android:exported="true"
+            android:enabled="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
+            ★ 二级功能页（图标 / 背景 / 杂项）宿主。
+
+            每页是一个**独立 Activity**，转场走系统原生 Activity 动画
+            （不再用 Compose NavHost 的应用内转场 —— 那套不参与系统
+            「过渡动画」设置，也没有平台的预测式返回等能力）。
+
+            ★ exported=false：只由应用内部 PanelActivity.start() 拉起，
+              不对外暴露。
+            ★ 主题用 Theme.CSE 且**不声明任何 windowAnimationStyle** ——
+              Theme.CSE 继承 android:Theme.Material.Light.NoActionBar，
+              该链最终由 android:Theme 提供
+              windowAnimationStyle=@style/Animation.Activity，
+              即 activityOpenEnter/activityCloseExit 那组原生水平推入动画。
+              显式写 @anim/... 反而会脱离用户主题设置。
+            ★ launchMode=singleTop：只避免「连续点同一个入口」时叠出多个
+              同样的页面；不同二级页仍可叠栈（图标页 → 背景页 → 返回 → 图标页）。
+              不能用 CLEAR_TOP —— 那会把栈中它上面的页面全部弹掉。
+              ★ 更不能给启动 Intent 加 FLAG_ACTIVITY_NEW_TASK ——
+              那会让转场从 activityOpen* 变成 taskOpen*
+              （后者没有水平位移，看上去就是"淡入淡出"）。
+        -->
+        <activity
+            android:name=".PanelActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.CSE" />
+
+        <!-- ===== LSPosed / libxposed API 102 模块声明 ===== -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="102" />
+        <meta-data
+            android:name="xposedid"
+            android:value="com.Nevkythera.ColorOSSplashScreenEvolution" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="@string/module_description" />
+
+        <!--
+            ★ AppCompat 的应用语言「自动持久化」标记（必须显式声明）。
+
+            为什么必须手写：appcompat 从 1.6 起把这个 Service 改为
+            「从源码编译进注入的清单」，本工程没有依赖对应的清单合并产物，
+            导致 APK 清单里缺失该声明。后果是
+            AppCompatDelegate.isAutoStorageOptedIn() 抛 NameNotFoundException
+            → sIsAutoStoreLocalesOptedIn 恒为 false → 语言选择不落盘。
+
+            校验方式（应能 grep 到 Locales）：
+              aapt dump xmltree <apk> AndroidManifest.xml | grep -i Locales
+
+            ★ 本模块自己也在 cse_config 里存了一份语言（见 LocaleManager 双存储），
+              这里是第二重保险，两者缺一不可 —— 因为系统「应用语言」设置页
+              只认这个 metaData。
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
+    </application>
+</manifest>

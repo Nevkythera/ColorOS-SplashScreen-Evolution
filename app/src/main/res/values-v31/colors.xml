@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Android 12+（API 31）：引用系统 Monet 动态色 system_accent1_200 作为图标背景，
+      实现「图标背景颜色根据系统取色动态调整」。system_accent1_* 由系统按壁纸生成。
+    -->
+    <color name="ic_launcher_background">@android:color/system_accent1_200</color>
+</resources>

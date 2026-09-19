@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">COS遮罩进化</string>
+    <string name="module_name">COS遮罩进化</string>
+    <string name="module_description">自定义 ColorOS 的 Splash Screen</string>
+
+    <!-- 激活状态 -->
+    <string name="activated">已激活</string>
+    <string name="module_not_activated">模块未激活</string>
+    <string name="root_not_available">Root 权限不可用</string>
+    <string name="activation_hint">请在 LSPosed 中启用本模块，并勾选作用域：com.android.systemui、系统框架（android）</string>
+
+    <!-- 分组标题 -->
+    <string name="group_app_config">应用配置</string>
+    <string name="group_module_function">模块功能</string>
+    <string name="group_about">关于</string>
+    <string name="group_author">作者</string>
+    <string name="group_predecessors">鸣谢</string>
+    <string name="group_device_info">设备信息</string>
+    <string name="group_general">一般</string>
+    <string name="group_personalize">个性化</string>
+    <string name="group_credits">鸣谢</string>
+
+    <!-- 底部页签 -->
+    <string name="tab_home">首页</string>
+    <string name="tab_setting">设置</string>
+    <string name="tab_about">关于</string>
+
+    <!-- 应用配置 -->
+    <string name="root_manager">Root 管理器</string>
+    <string name="root_manager_version">Root 管理器版本</string>
+    <string name="show_launcher_icon">显示桌面图标</string>
+
+    <!-- 设备信息 -->
+    <string name="android_version">安卓版本</string>
+    <string name="device_model">机型</string>
+
+    <!-- 模块功能 -->
+    <string name="force_native_sc">总开关</string>
+    <string name="force_native_sc_desc">强制使用 Android 原生 Splash Screen API</string>
+    <string name="disable_snapshot_overlay">关闭截图覆盖</string>
+    <string name="disable_snapshot_overlay_desc">忽略应用自带的启动图，改为显示系统原生大图标</string>
+
+    <!-- 功能入口 -->
+    <string name="feature_icon">图标</string>
+    <string name="feature_icon_desc">图标样式、尺寸与获取方式</string>
+    <string name="feature_background">背景</string>
+    <string name="feature_background_desc">替换启动遮罩背景颜色</string>
+    <string name="feature_animation">动画</string>
+    <string name="feature_animation_desc">启动与退出时的过渡动画</string>
+    <string name="feature_misc">杂项</string>
+    <string name="feature_misc_desc">热启动行为等进阶选项</string>
+
+    <!-- 动画页 / 退出动画页 -->
+    <string name="exit_animation">退出动画</string>
+    <string name="exit_animation_desc">启动遮罩消失时播放的动画效果</string>
+    <string name="exit_anim_mode">退出动画效果</string>
+    <string name="exit_anim_default">默认</string>
+    <string name="exit_anim_particle">粒子扩散</string>
+    <string name="exit_anim_dissolve">粒子消散</string>
+    <string name="exit_particle_params">粒子参数</string>
+    <string name="exit_particle_duration">动画时长</string>
+    <string name="exit_particle_duration_desc">粒子消散动画的持续时间</string>
+    <string name="exit_particle_duration_value">%1$d ms</string>
+    <string name="exit_particle_speed">粒子速度</string>
+    <string name="exit_particle_speed_desc">单个粒子自身的运动时长</string>
+    <string name="exit_particle_speed_value">%1$d ms</string>
+
+    <!-- 图标页 -->
+    <string name="draw_round_corner">绘制图标圆角</string>
+    <string name="draw_round_corner_desc">为启动遮罩上的图标绘制圆角</string>
+    <string name="shrink_icon">缩小图标</string>
+    <string name="shrink_icon_desc">把启动图标缩小到规范尺寸，可与模糊背景配合使用</string>
+    <string name="not_shrink_icon">不缩小</string>
+    <string name="shrink_all_icon">缩小全部图标</string>
+    <string name="icon_blur_bg">模糊图标背景</string>
+    <string name="icon_blur_bg_desc">在图标背后叠加一层放大的高斯模糊背景</string>
+    <string name="icon_blur_bg_scale">模糊背景大小</string>
+    <string name="icon_blur_bg_scale_desc">模糊背景相对图标的放大倍率</string>
+    <string name="icon_blur_bg_scale_value">%1$.2f×</string>
+    <string name="morph_shape">几何形变加载动画</string>
+    <string name="morph_shape_desc">在图标背后播放 Material 3 Expressive 几何形变加载动画</string>
+    <string name="morph_shape_size">指示器大小</string>
+    <string name="morph_shape_size_desc">指示器直径相对于图标的倍率</string>
+    <string name="morph_shape_size_value">%.2f×</string>
+    <string name="morph_shape_color">指示器颜色</string>
+    <string name="morph_shape_color_desc">指示器的取色来源</string>
+    <string name="morph_color_monet">跟随系统取色</string>
+    <string name="morph_color_icon">跟随应用图标（实验性）</string>
+    <string name="replace_icon">替换图标获取方式</string>
+    <string name="replace_icon_desc">改用系统接口获取图标，可跟随主题图标包</string>
+
+    <!-- 背景页 -->
+    <string name="change_bg_color">替换背景颜色</string>
+    <string name="not_change_bg_color">不替换背景颜色</string>
+    <string name="from_icon">从图标取色</string>
+    <string name="from_monet">Material You 动态取色</string>
+    <string name="from_custom">自定义颜色</string>
+    <string name="color_mode">颜色模式</string>
+    <string name="light_color">浅色</string>
+    <string name="dark_color">暗色</string>
+    <string name="follow_system">跟随系统</string>
+    <string name="set_custom_bg_color">自定义背景颜色</string>
+    <string name="set_custom_bg_color_light">浅色自定义颜色</string>
+    <string name="set_custom_bg_color_dark">暗色自定义颜色</string>
+
+    <!-- 通用 -->
+    <string name="back">返回</string>
+
+    <!-- 杂项页 -->
+    <string name="misc_placeholder">敬请期待</string>
+    <string name="remove_icon">移除图标</string>
+    <string name="remove_icon_desc">隐藏启动遮罩上的全部图标（含底部品牌图）</string>
+    <string name="enable_hot_start_splash">热启动也适用启动遮罩</string>
+    <string name="enable_hot_start_splash_desc">应用从后台恢复时同样显示启动遮罩，而非直接使用任务快照</string>
+
+    <!-- 关于 -->
+    <string name="module_version">模块版本</string>
+    <string name="open_source_address">开源地址</string>
+    <string name="open_source_url">https://github.com/Nevkythera/ColorOS-SplashScreen-Evolution</string>
+    <string name="coming_soon">敬请期待</string>
+    <string name="module_author">模块作者</string>
+    <string name="coolapk_homepage">酷安主页链接</string>
+
+    <!-- 应用展示区（关于页顶部） -->
+    <string name="about_hero_title">COS遮罩进化</string>
+    <!-- 主标题下方的英文缩写（ColorOS SplashScreen Evolution） -->
+    <string name="about_hero_title_en">CSE</string>
+    <!--
+        ★ 首页顶栏 / 关于页大图标下方的「短名」——固定为缩写 CSE（三语一致）。
+
+        为什么单独开一条资源而不复用 about_hero_title：
+          - 顶栏高度有限，且要与「设置 / 关于」两个页签视觉等宽，
+            全称 "COS SplashScreen Evolution" 必然被截断成
+            "COS SplashScreen Evol…"，比直接用缩写更难看；
+          - 关于页大图标下方那一行本来就要在**两个**名称间切换
+            （中文环境补缩写、英文环境补全称），复用 about_hero_title
+            会让这个分支判断自相矛盾。
+        所以：about_hero_title  = 各语言的「主标题」（中文名 / 英文名）
+              about_hero_title_en = 关于页「副行」
+              about_hero_short    = 顶栏专用的固定缩写
+    -->
+    <string name="about_hero_short" translatable="false">CSE</string>
+    <string name="about_hero_subtitle">在 ColorOS 上恢复并自定义原生 SplashScreen 界面</string>
+    <string name="about_hero_subtitle_en">Restore and customize the native SplashScreen on ColorOS</string>
+    <!-- 版本号后缀：形如「1.1(60)」—— 版本名 + 括号包裹的版本 ID -->
+    <string name="about_version_with_id">%1$s(%2$d)</string>
+
+    <!-- 语言切换（应用配置） -->
+    <string name="language">语言</string>
+    <string name="language_desc">设置模块界面的显示语言</string>
+    <string name="language_follow_system">跟随系统</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_en">English</string>
+
+    <!-- 鸣谢 -->
+    <string name="credits_title">鸣谢</string>
+    <string name="credits_desc">以下项目为本模块提供了参考与灵感，欢迎前往支持</string>
+    <string name="project_splash_evolution">启动遮罩进化</string>
+    <string name="project_splash_evolution_url">https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose</string>
+    <string name="project_mcga">MCGA</string>
+    <string name="project_mcga_url">https://github.com/JiaGuZhuangZhi/MCGA</string>
+
+    <!-- 重启菜单 -->
+    <string name="restart_systemui">重启系统界面</string>
+    <string name="restart_confirm_message">确定要重启系统界面吗？</string>
+    <string name="restart_done">已请求重启系统界面</string>
+    <string name="restart_failed">重启失败：需要 root 权限</string>
+
+    <!-- 通用状态 / 对话框 -->
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="state_detecting">检测中…</string>
+    <string name="switch_failed">切换失败，请重试</string>
+    <string name="root_not_detected">未检测到</string>
+    <string name="root_unknown_scheme">未知 Root 方案</string>
+    <string name="root_unknown_version">未知</string>
+    <string name="value_none">—</string>
+</resources>

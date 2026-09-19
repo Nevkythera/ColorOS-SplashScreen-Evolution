@@ -4,6 +4,7 @@
 
     <application
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:description="@string/module_description"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -72,6 +73,18 @@
         -->
         <activity
             android:name=".PanelActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.CSE" />
+
+        <!--
+            退出动画页（三级页）。与上面几个二级页一样是**独立 Activity**，
+            转场与预测式返回都交给系统原生处理。
+            不能用 PanelActivity 承载：从「动画」页（同为 PanelActivity，
+            launchMode=singleTop）拉起时会被栈顶复用，页面不会切换。
+        -->
+        <activity
+            android:name=".ExitAnimationActivity"
             android:exported="false"
             android:launchMode="singleTop"
             android:theme="@style/Theme.CSE" />

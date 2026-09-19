@@ -148,7 +148,7 @@ class SplashParticleView(
                     } else {
                         // 扩散：大爆炸——方向 360° 均匀随机，位移幅度很大
                         val ang = rnd.nextFloat() * TWO_PI
-                        val rr = dp(90f) + rnd.nextInt(dp(120f).coerceAtLeast(1))
+                        val rr = dp(220f) + rnd.nextInt(dp(380f).coerceAtLeast(1))
                         txs[n] = kotlin.math.cos(ang) * rr
                         tys[n] = kotlin.math.sin(ang) * rr
                         vys[n] = 0f

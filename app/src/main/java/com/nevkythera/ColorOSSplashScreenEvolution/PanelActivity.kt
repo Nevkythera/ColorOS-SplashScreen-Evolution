@@ -17,7 +17,6 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.data.ConfigStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.navgation.Destination
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.AnimationPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.BackgroundPage
-import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.ExitAnimationPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.IconPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.MiscPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.theme.AppTheme
@@ -65,8 +64,9 @@ class PanelActivity : ComponentActivity() {
                 val goBack: () -> Unit = {
                     if (pageStack.size > 1) pageStack.removeAt(pageStack.lastIndex) else finish()
                 }
-                // 统一接管返回：栈内还有上级就弹栈，否则走默认（结束本 Activity）。
-                BackHandler { goBack() }
+                // 栈内还有上级才接管返回；单页时交给系统，
+                // 这样返回手势能走平台预测式返回动画。
+                BackHandler(enabled = pageStack.size > 1) { goBack() }
 
                 when (current) {
                     Destination.ICON -> IconPage(
@@ -88,15 +88,6 @@ class PanelActivity : ComponentActivity() {
                     )
 
                     Destination.ANIMATION -> AnimationPage(
-                        onBackClick = goBack,
-                        onRestartClick = restart,
-                        onOpenChild = { pageStack.add(it) }
-                    )
-
-                    Destination.EXIT_ANIMATION -> ExitAnimationPage(
-                        config = config,
-                        store = store,
-                        onConfigChange = { config = it },
                         onBackClick = goBack,
                         onRestartClick = restart
                     )

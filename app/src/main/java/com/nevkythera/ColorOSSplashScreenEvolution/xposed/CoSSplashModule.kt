@@ -2183,12 +2183,12 @@ class CoSSplashModule : XposedModule() {
             parent.getLocationOnScreen(parentLoc)
             iconView.getLocationOnScreen(iconLoc)
 
-            val cx = iconLoc[0] - parentLoc[0] + iconView.width / 2
-            val cy = iconLoc[1] - parentLoc[1] + iconView.height / 2
+            val cx = iconLoc[0] - parentLoc[0] + iconView.width / 2f
+            val cy = iconLoc[1] - parentLoc[1] + iconView.height / 2f
 
             // 夹到 parent 范围内，防止极端布局算出负数 margin 导致视图飞出
-            val left = (cx - size / 2)
-            val top = (cy - size / 2)
+            val left = kotlin.math.round(cx - size / 2f).toInt()
+            val top = kotlin.math.round(cy - size / 2f).toInt()
 
             val lp = target.layoutParams as? FrameLayout.LayoutParams
             if (lp != null && lp.gravity == (Gravity.TOP or Gravity.LEFT) &&

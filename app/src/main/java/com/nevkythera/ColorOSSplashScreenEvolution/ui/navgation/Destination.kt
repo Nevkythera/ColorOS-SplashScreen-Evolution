@@ -5,7 +5,6 @@ enum class Destination(val route: String) {
     ICON(route = "icon"),
     BACKGROUND(route = "background"),
     ANIMATION(route = "animation"),
-    EXIT_ANIMATION(route = "exit_animation"),
     MISC(route = "misc");
 
     companion object {

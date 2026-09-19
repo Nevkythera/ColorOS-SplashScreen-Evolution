@@ -147,6 +147,7 @@
     <string name="language_follow_system">跟随系统</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
+    <string name="language_ai_note">由AI翻译，可能存在误差</string>
 
     <!-- 鸣谢 -->
     <string name="credits_title">鸣谢</string>

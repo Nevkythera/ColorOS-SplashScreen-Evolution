@@ -467,6 +467,18 @@ private fun HomePage(
                         }
                     )
                 }
+                if (context.resources.configuration.locales[0].language == "en") {
+                    entry("language_ai_note") {
+                        Text(
+                            text = stringResource(R.string.language_ai_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 12.dp)
+                        )
+                    }
+                }
             }
         )
     }

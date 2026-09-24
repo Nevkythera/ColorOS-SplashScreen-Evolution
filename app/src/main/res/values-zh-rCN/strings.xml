@@ -71,9 +71,9 @@
     <string name="exit_anim_default">默认</string>
     <string name="exit_anim_particle">粒子扩散</string>
     <string name="exit_anim_dissolve">粒子消散</string>
-    <string name="exit_particle_params">粒子参数</string>
+    <string name="exit_particle_params">动画参数</string>
     <string name="exit_particle_duration">动画时长</string>
-    <string name="exit_particle_duration_desc">粒子消散动画的持续时间</string>
+    <string name="exit_particle_duration_desc">动画的持续时间</string>
     <string name="exit_particle_duration_value">%1$d ms</string>
     <string name="exit_particle_speed">粒子速度</string>
     <string name="exit_particle_speed_desc">单个粒子自身的运动时长</string>
@@ -134,8 +134,8 @@
     <string name="about_hero_title">COS遮罩进化</string>
     <!-- 主标题下方的英文缩写（ColorOS SplashScreen Evolution） -->
     <string name="about_hero_title_en">CSE</string>
-    <!-- 顶栏专用固定缩写（见 values/strings.xml 同名条目的注释） -->
-    <string name="about_hero_short" translatable="false">CSE</string>
+    <!-- 首页顶栏标题（见 values/strings.xml 同名条目的注释） -->
+    <string name="about_hero_short">COS遮罩进化</string>
     <string name="about_hero_subtitle">在 ColorOS 上恢复并自定义原生 SplashScreen 界面</string>
     <string name="about_hero_subtitle_en">Restore and customize the native SplashScreen on ColorOS</string>
     <!-- 版本号后缀：形如「0.3 · ID 33」 -->
@@ -148,6 +148,10 @@
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
     <string name="language_ai_note">由AI翻译，可能存在误差</string>
+    <string name="feature_extra">附加功能</string>
+    <string name="feature_extra_desc">不属于主功能链路的附加开关</string>
+    <string name="aosp_transition">还原 AOSP 过渡动画</string>
+    <string name="aosp_transition_desc">把 ColorOS 定制的应用过渡与小窗过渡还原为 AOSP 的左右推入＋淡入淡出（不含桌面与最近任务）</string>
 
     <!-- 鸣谢 -->
     <string name="credits_title">鸣谢</string>
@@ -159,6 +163,10 @@
 
     <!-- 重启菜单 -->
     <string name="restart_systemui">重启系统界面</string>
+    <string name="restart_title">重启</string>
+    <string name="restart_device">重启系统</string>
+    <string name="reboot_done">已请求重启系统</string>
+    <string name="reboot_confirm_message">确定要重启系统吗？</string>
     <string name="restart_confirm_message">确定要重启系统界面吗？</string>
     <string name="restart_done">已请求重启系统界面</string>
     <string name="restart_failed">重启失败：需要 root 权限</string>

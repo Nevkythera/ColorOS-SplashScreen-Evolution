@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.Nevkythera.ColorOSSplashScreenEvolution.PanelActivity
+import com.Nevkythera.ColorOSSplashScreenEvolution.ExtraFeaturesActivity
 import com.Nevkythera.ColorOSSplashScreenEvolution.R
 import com.Nevkythera.ColorOSSplashScreenEvolution.data.ConfigStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.data.CseConfig
@@ -72,6 +73,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.ui.theme.baseHazeStyle
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.AppTopBar
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.CapsuleShapes
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.OptionWidget
+import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.RestartDialog
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.StableEntry
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.entry
@@ -203,31 +205,30 @@ fun MainScreen() {
         }
     }
 
-    // 重启确认框
-    if (showRestartMenu) {
-        AlertDialog(
-            onDismissRequest = { showRestartMenu = false },
-            icon = {
-                Icon(
-                    painter = painterResource(R.drawable.refresh),
-                    contentDescription = null
-                )
-            },
-            title = { Text(stringResource(R.string.restart_systemui)) },
-            text = { Text(stringResource(R.string.restart_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRestartMenu = false
-                        restartSystemUi()
-                    }
-                ) { Text(stringResource(R.string.dialog_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestartMenu = false }) {
-                    Text(stringResource(R.string.dialog_cancel))
-                }
+    fun restartDevice() {
+        if (busy) return
+        busy = true
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                com.Nevkythera.ColorOSSplashScreenEvolution.util.SystemUiRestarter
+                    .rebootSystem()
             }
+            Toast.makeText(
+                context,
+                if (ok) context.getString(R.string.reboot_done)
+                else context.getString(R.string.restart_failed),
+                Toast.LENGTH_SHORT
+            ).show()
+            busy = false
+        }
+    }
+
+    // 重启选项框（与二级页共用 RestartDialog）
+    if (showRestartMenu) {
+        RestartDialog(
+            onDismiss = { showRestartMenu = false },
+            onRestartSystemUi = { restartSystemUi() },
+            onRebootSystem = { restartDevice() }
         )
     }
 
@@ -644,6 +645,18 @@ private fun SettingPage(
                         enabled = masterEnabled,
                         onClick = {
                             PanelActivity.start(context, Destination.MISC)
+                        }
+                    )
+                }
+                entry("feature_extra") { shape ->
+                    OptionWidget(
+                        modifier = Modifier.clip(shape),
+                        iconRes = R.drawable.difference,
+                        title = stringResource(R.string.feature_extra),
+                        description = stringResource(R.string.feature_extra_desc),
+                        enabled = masterEnabled,
+                        onClick = {
+                            ExtraFeaturesActivity.start(context)
                         }
                     )
                 }

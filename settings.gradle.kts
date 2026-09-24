@@ -14,3 +14,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "CSE"
 include(":app")
+include(":hidden-api")
+include(":shell-stubs")

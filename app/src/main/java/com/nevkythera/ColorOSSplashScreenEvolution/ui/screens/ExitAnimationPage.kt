@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,7 +107,7 @@ fun ExitAnimationPage(
 
             SplicedColumnGroup(
                 title = stringResource(R.string.exit_particle_params),
-                entries = buildList {
+                entries = if (particleEnabled) buildList {
                     entry("exit_particle_speed") {
                         SliderWidget(
                             iconRes = R.drawable.bolt,
@@ -147,7 +149,7 @@ fun ExitAnimationPage(
                             }
                         )
                     }
-                }
+                } else emptyList()
             )
         }
     }

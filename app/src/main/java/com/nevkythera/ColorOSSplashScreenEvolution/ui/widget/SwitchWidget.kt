@@ -1,5 +1,6 @@
 package com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.Nevkythera.ColorOSSplashScreenEvolution.R
@@ -43,11 +45,16 @@ fun SwitchWidget(
 ) {
     // 置灰时整体降低透明度
     val contentAlpha = if (enabled) 1f else 0.38f
+    val view = LocalView.current
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) {
+                // 清脆、强而极短的触感反馈
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                onCheckedChange(!checked)
+            }
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically

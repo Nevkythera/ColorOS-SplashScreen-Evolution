@@ -73,9 +73,9 @@
     <string name="exit_anim_default">Default</string>
     <string name="exit_anim_particle">Particle diffusion</string>
     <string name="exit_anim_dissolve">Particle dissolve</string>
-    <string name="exit_particle_params">Particle parameters</string>
+    <string name="exit_particle_params">Animation parameters</string>
     <string name="exit_particle_duration">Animation duration</string>
-    <string name="exit_particle_duration_desc">Duration of the particle dissolve animation</string>
+    <string name="exit_particle_duration_desc">Duration of the animation</string>
     <string name="exit_particle_duration_value">%1$d ms</string>
     <string name="exit_particle_speed">Particle speed</string>
     <string name="exit_particle_speed_desc">Motion duration of each individual particle</string>
@@ -133,17 +133,16 @@
     <string name="coolapk_homepage">Coolapk profile</string>
 
     <!-- About hero (top of the About page) -->
-    <string name="about_hero_title">COS SplashScreen Evolution</string>
+    <string name="about_hero_title">CSE</string>
     <!--
         Secondary line shown under the main title.
-        ★ 英文环境下这里显示**全称**而非缩写 CSE —— 因为主标题本身已经是
-          "COS SplashScreen Evolution"，再放一个 CSE 反而信息重复；
-          而中文环境下主标题是"COS遮罩进化"，缩写 CSE 才起到补全英文名的作
+        ★ 英文主标题本身就是缩写 CSE，所以这里补的是全称；
+          中文主标题是"COS遮罩进化"，副行给缩写 CSE 起到补英文名的作
           用。见 MainScreen 里决定取哪个字符串的分支。
     -->
     <string name="about_hero_title_en">ColorOS SplashScreen Evolution</string>
-    <!-- Short form fixed to the CSE acronym; used by the Home top app bar (see values/strings.xml) -->
-    <string name="about_hero_short" translatable="false">CSE</string>
+    <!-- Home top app bar title (English) -->
+    <string name="about_hero_short">CSE</string>
     <string name="about_hero_subtitle">Restore and customize the native SplashScreen on ColorOS</string>
     <string name="about_hero_subtitle_en">Restore and customize the native SplashScreen on ColorOS</string>
     <!-- Version suffix, rendered as "1.1(60)" — version name + version ID in parentheses -->
@@ -156,6 +155,10 @@
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
     <string name="language_ai_note">Translated by AI, may contain inaccuracies.</string>
+    <string name="feature_extra">Additional features</string>
+    <string name="feature_extra_desc">Extra toggles that are not part of the main features</string>
+    <string name="aosp_transition">Restore AOSP transition animations</string>
+    <string name="aosp_transition_desc">Restore ColorOS-customized activity and small-window transitions to the AOSP slide-in with fade (launcher and recents are unaffected)</string>
 
     <!-- Credits -->
     <string name="credits_title">Credits</string>
@@ -167,6 +170,10 @@
 
     <!-- Restart menu -->
     <string name="restart_systemui">Restart System UI</string>
+    <string name="restart_title">Restart</string>
+    <string name="restart_device">Reboot system</string>
+    <string name="reboot_done">Reboot requested</string>
+    <string name="reboot_confirm_message">Reboot the system?</string>
     <string name="restart_confirm_message">Restart System UI?</string>
     <string name="restart_done">System UI restart requested</string>
     <string name="restart_failed">Restart failed: root access required</string>

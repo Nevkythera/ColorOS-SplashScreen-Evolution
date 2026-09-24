@@ -89,11 +89,15 @@ class MorphShapeView(context: Context) : View(context) {
         // 用官方 Morph 得到当前插值形状，写入 Path
         val baseSize = min(w, h) * 0.5f
         val cubics = morph.asCubics(morphT)
-        //   任何时刻质心都精确等于旋转轴 → 旋转绝对稳定，五边形不再甩，
-        //   也不存在预计算质心与 Morph 匹配后实际质心不一致的残差
-        //   （实测 Pill/Cookie4 用 raw 质心会残差 1~1.5px）。
-        val cen = centroidOf(cubics)
-        buildPath(cubics, ccx = cen[0], ccy = cen[1], baseSize = baseSize, cx = cx, cy = cy)
+        // 中心取自「按关键帧预计算、随形变进度线性插值」的固定表：
+        // 每个关键帧用该形状自己的中心（包围盒中心；五边形取质心 = 图形中心），
+        // 形变中在两个关键帧之间线性过渡 —— 既各形状居中，又不会逐帧抖动
+        // （逐帧算中心会因锚点插值而游走，表现为交接时横向闪一下）。
+        val nxt = (idx + 1) % MORPHS.size
+        val centers = keyCenters
+        val fitX = centers[idx * 2] + (centers[nxt * 2] - centers[idx * 2]) * morphT
+        val fitY = centers[idx * 2 + 1] + (centers[nxt * 2 + 1] - centers[idx * 2 + 1]) * morphT
+        buildPath(cubics, ccx = fitX, ccy = fitY, baseSize = baseSize, cx = cx, cy = cy)
 
         // 首帧自检：视图若被父容器意外拉伸成全屏，形状会随之变巨大 —— 靠这行日志定位
         if (!sizeLogged) {
@@ -146,7 +150,36 @@ class MorphShapeView(context: Context) : View(context) {
         return floatArrayOf(cx, cy)
     }
 
-    
+    /**
+     * 每个关键帧形状的中心（旋转轴落点）。
+     * 惯例取包围盒中心；五边形例外（索引 2）——它的包围盒中心比图形中心高，取质心。
+     */
+    private val keyCenters: FloatArray by lazy {
+        val arr = FloatArray(MORPHS.size * 2)
+        for (i in MORPHS.indices) {
+            val c = MORPHS[i].asCubics(0f)
+            val cen = centroidOf(c)
+            val box = boundsCenterOf(c)
+            arr[i * 2] = if (i == 2) cen[0] else box[0]
+            arr[i * 2 + 1] = if (i == 2) cen[1] else box[1]
+        }
+        arr
+    }
+
+    private fun boundsCenterOf(cubics: List<Cubic>): FloatArray {
+        var minX = Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+        for (c in cubics) {
+            minX = minOf(minX, c.anchor0X, c.control0X, c.control1X, c.anchor1X)
+            minY = minOf(minY, c.anchor0Y, c.control0Y, c.control1Y, c.anchor1Y)
+            maxX = maxOf(maxX, c.anchor0X, c.control0X, c.control1X, c.anchor1X)
+            maxY = maxOf(maxY, c.anchor0Y, c.control0Y, c.control1Y, c.anchor1Y)
+        }
+        return floatArrayOf((minX + maxX) / 2f, (minY + maxY) / 2f)
+    }
+
     private fun buildPath(
         cubics: List<Cubic>,
         ccx: Float,

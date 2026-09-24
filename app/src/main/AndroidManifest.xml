@@ -84,6 +84,12 @@
             launchMode=singleTop）拉起时会被栈顶复用，页面不会切换。
         -->
         <activity
+            android:name=".ExtraFeaturesActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.CSE" />
+
+        <activity
             android:name=".ExitAnimationActivity"
             android:exported="false"
             android:launchMode="singleTop"

@@ -87,6 +87,15 @@ class CoSSplashModule : XposedModule() {
         const val CLS_SPLASH_VIEW_BUILDER_FRAMEWORK = "android.window.SplashScreenView\$Builder"
 
         /** 真正的 SplashScreenView（装饰只允许作用在它身上）。 */
+        const val CLS_ADAPTIVE_SMOOTH_SHELL_ANIM =
+            "com.android.wm.shell.transition.AdaptiveSmoothShellAnimManager"
+
+        const val CLS_CROSS_BACK_ANIM_EXT =
+            "com.android.wm.shell.back.CrossBackAnimationExt"
+
+        const val CLS_CROSS_BACK_ANIM =
+            "com.android.wm.shell.back.CrossActivityBackAnimation"
+
         const val CLS_SPLASH_SCREEN_VIEW = "android.window.SplashScreenView"
 
         /** 背景 Hook 用：从缓存取背景色（缓存 mTmpAttrs）。 */
@@ -195,6 +204,13 @@ class CoSSplashModule : XposedModule() {
         const val KEY_CUSTOM_BG_COLOR_NIGHT = "custom_bg_color_night"
         const val KEY_PARTICLE_TIME_MS = "exit_particle_time_ms"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
+
+        /** 还原 AOSP 过渡动画（附加功能）。 */
+        const val KEY_AOSP_TRANSITION = "aosp_transition"
+
+        /** 开关状态：true 时放弃 ColorOS 的过渡动画覆盖，回落 AOSP 资源动画。 */
+        @Volatile
+        var AOSP_TRANSITION = false
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
         const val KEY_REMOVE_ICON = "remove_icon"
@@ -401,6 +417,7 @@ class CoSSplashModule : XposedModule() {
             EXIT_PARTICLE_DURATION_MS = prefs
                 .getInt(KEY_EXIT_PARTICLE_DURATION_MS, EXIT_DURATION_DEFAULT)
                 .coerceIn(EXIT_DURATION_MIN, EXIT_DURATION_MAX)
+            AOSP_TRANSITION = prefs.getBoolean(KEY_AOSP_TRANSITION, false)
             if (logResult) {
                 log(
                     Log.INFO, TAG,
@@ -504,6 +521,9 @@ class CoSSplashModule : XposedModule() {
         installStage("I2_splash_view_decor") { installSplashViewDecorHook(cl) }
         //     与 build() 是否被 ROM 绕过、返回的 view 是不是最终那一个都无关。
         installStage("I3_splash_view_attached") { installSplashViewAttachedHook(cl) }
+        installStage("J_aosp_transition") { installAospTransitionHook(cl) }
+        installStage("K_aosp_back_anim") { installAospBackAnimHook(cl) }
+        installStage("L_back_probe") { installBackProbeHook(cl) }
     }
 
     // ================================================================ 热重载
@@ -2938,6 +2958,166 @@ class CoSSplashModule : XposedModule() {
             log(Log.INFO, TAG, "event=install_hook result=ok id=$id target=$label count=${methods.size}")
         } catch (t: Throwable) {
             logHookFailure(id, t)
+        }
+    }
+
+    /**
+     * 只读探针：记录预测返回每帧的变换参数（不做任何修改），
+     * 用于与 AOSP 16 源码同阶段数值对照，定位 ROM 改了哪一项。
+     */
+    private fun installBackProbeHook(cl: ClassLoader) {
+        try {
+            var logged = 0
+            val cls = cl.loadClass(CLS_CROSS_BACK_ANIM)
+            val methods = cls.declaredMethods.filter {
+                it.name == "applyTransform" && it.parameterCount == 5
+            }
+            if (methods.isEmpty()) {
+                log(
+                    Log.WARN, TAG,
+                    "event=install_hook result=skip code=CSE-SIG-001 " +
+                        "id=back_probe reason=method_not_found"
+                )
+                return
+            }
+            methods.forEach { m ->
+                m.isAccessible = true
+                hook(m)
+                    .setId("back_probe")
+                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                    .intercept { chain ->
+                        if (logged < 60) {
+                            runCatching {
+                                val progress = chain.args.filterIsInstance<Float>().firstOrNull()
+                                val tr = chain.args
+                                    .filterIsInstance<android.view.animation.Transformation>()
+                                    .firstOrNull()
+                                val v = FloatArray(9)
+                                tr?.matrix?.getValues(v)
+                                log(
+                                    Log.INFO, TAG,
+                                    "event=back_probe p=$progress sx=${v[0]} sy=${v[4]} " +
+                                        "tx=${v[2]} ty=${v[5]} a=${tr?.alpha}"
+                                )
+                                logged++
+                            }
+                        }
+                        chain.proceed()
+                    }
+            }
+            log(
+                Log.INFO, TAG,
+                "event=install_hook result=ok id=back_probe " +
+                    "target=${cls.name}#applyTransform count=${methods.size} gate=live"
+            )
+        } catch (t: Throwable) {
+            logHookFailure("back_probe", t)
+        }
+    }
+
+    private fun installAospBackAnimHook(cl: ClassLoader) {
+        try {
+            val cls = cl.loadClass(CLS_CROSS_BACK_ANIM_EXT)
+            var count = 0
+
+            // ① 门控：不接管背景色
+            cls.declaredMethods.filter {
+                it.name == "shouldHookGetBackGroundColor" && it.parameterCount == 1
+            }.forEach { m ->
+                m.isAccessible = true
+                hook(m)
+                    .setId("aosp_back_anim")
+                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                    .intercept { chain ->
+                        refreshConfigSilently()
+                        log(Log.INFO, TAG, "event=aosp_back_anim_call m=shouldHook enabled=$AOSP_TRANSITION")
+                        if (AOSP_TRANSITION) false else chain.proceed()
+                    }
+                count++
+            }
+
+            // ② 只旁路 ROM 的「背景/遮罩」分支（定制观感的来源）；
+            //    不碰 updateGestureBackProgress / initBackStartTouchX（它们是驱动动画本身的）
+            listOf(
+                "applyTransformForOpeningTargetScrim",
+                "applyTransformForOpeningTargetCancelScrim",
+                "applyTransformForCommitOpeningTargetScrimAlpha"
+            ).forEach { name ->
+                cls.declaredMethods.filter { it.name == name && it.parameterCount == 1 }
+                    .forEach { m ->
+                        m.isAccessible = true
+                        hook(m)
+                            .setId("aosp_back_anim")
+                            .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                            .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                            .intercept { chain ->
+                                refreshConfigSilently()
+                                log(Log.INFO, TAG, "event=aosp_back_anim_call m=$name enabled=$AOSP_TRANSITION")
+                                if (AOSP_TRANSITION) null else chain.proceed()
+                            }
+                        count++
+                    }
+            }
+
+            if (count == 0) {
+                log(
+                    Log.WARN, TAG,
+                    "event=install_hook result=skip code=CSE-SIG-001 " +
+                        "id=aosp_back_anim reason=method_not_found"
+                )
+                return
+            }
+            log(
+                Log.INFO, TAG,
+                "event=install_hook result=ok id=aosp_back_anim " +
+                    "target=${cls.name} count=$count gate=live"
+            )
+        } catch (t: Throwable) {
+            logHookFailure("aosp_back_anim", t)
+        }
+    }
+
+    private fun installAospTransitionHook(cl: ClassLoader) {
+        try {
+            val cls = cl.loadClass(CLS_ADAPTIVE_SMOOTH_SHELL_ANIM)
+            val methods = cls.declaredMethods.filter {
+                it.name == "hookTransitionAnimation" && it.parameterCount == 6
+            }
+            if (methods.isEmpty()) {
+                log(
+                    Log.WARN, TAG,
+                    "event=install_hook result=skip code=CSE-SIG-001 " +
+                        "id=aosp_transition reason=method_not_found"
+                )
+                return
+            }
+            methods.forEach { m ->
+                m.isAccessible = true
+                hook(m)
+                    .setId("aosp_transition")
+                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                    .intercept { chain ->
+                        refreshConfigSilently()
+                        // ColorOS 用它替换窗口过渡动画；返回 null 即放弃覆盖，
+                        // 回落平台的资源动画（AOSP 左右推入＋淡入淡出）。
+                        // 注：只钩这一个方法 —— 旋转动画由 ScreenRotationAnimation 等
+                        // 另一个链路实现，不受影响。
+                        log(
+                            Log.INFO, TAG,
+                            "event=aosp_transition_call enabled=$AOSP_TRANSITION"
+                        )
+                        if (AOSP_TRANSITION) null else chain.proceed()
+                    }            }
+            log(
+                Log.INFO, TAG,
+                "event=install_hook result=ok id=aosp_transition " +
+                    "target=${cls.name}#hookTransitionAnimation count=${methods.size} gate=live"
+            )
+        } catch (t: Throwable) {
+            logHookFailure("aosp_transition", t)
         }
     }
 

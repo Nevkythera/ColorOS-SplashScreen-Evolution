@@ -14,8 +14,8 @@ android {
         applicationId = "com.Nevkythera.ColorOSSplashScreenEvolution"
         minSdk = 35
         targetSdk = 36
-        versionCode = 61
-        versionName = "1.0"
+        versionCode = 87
+        versionName = "1.1 Mid-Autumn"
 
         // 仅打包 arm64-v8a 原生库
         ndk {
@@ -59,6 +59,8 @@ android {
 }
 
 dependencies {
+    // AOSP 版预测返回动画实现（纯 JVM 模块编译，内含移植的 CrossActivityBackAnimation）
+    implementation(project(":hidden-api"))
     // LSPosed (libxposed) API 102 —— 仅编译期依赖，运行期由框架注入实现
     compileOnly("io.github.libxposed:api:102.0.0")
     // 模块设置界面侧的框架服务桥接：用于判定"模块是否已激活"

@@ -46,6 +46,18 @@ object SystemUiRestarter {
     }
 
     /**
+     * 重启整机（reboot）。
+     *
+     * @return true 表示命令已成功下发。
+     */
+    fun rebootSystem(): Boolean = try {
+        execAsRoot(listOf("reboot"))
+    } catch (t: Throwable) {
+        Log.w(TAG, "rebootSystem failed", t)
+        false
+    }
+
+    /**
      * 只重启 system_server 侧的 splash 相关逻辑代价过大（会软重启），
      * 这里保留接口但不默认启用。
      */

@@ -10,33 +10,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.Nevkythera.ColorOSSplashScreenEvolution.ExitAnimationActivity
 import com.Nevkythera.ColorOSSplashScreenEvolution.R
+import com.Nevkythera.ColorOSSplashScreenEvolution.data.ConfigStore
+import com.Nevkythera.ColorOSSplashScreenEvolution.data.CseConfig
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.page.BasePanelPage
-import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.OptionWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
+import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SwitchWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.entry
 
 /**
- * 「动画」二级页。
- *
- * 结构 1:1 照抄 [MiscPage]：顶栏 + 一个功能入口，入口指向独立的
- * [ExitAnimationActivity]（系统原生 Activity 转场 + 预测式返回）。
+ * 「附加功能」二级页 —— 收纳不属于主功能链路的附加开关。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnimationPage(
+fun ExtraFeaturesPage(
+    config: CseConfig,
+    store: ConfigStore,
+    onConfigChange: (CseConfig) -> Unit,
     onBackClick: () -> Unit,
     onRestartClick: () -> Unit
 ) {
-    val context = LocalContext.current
     BasePanelPage(
-        title = stringResource(R.string.feature_animation),
+        title = stringResource(R.string.feature_extra),
         onBackClick = onBackClick,
         onRestartClick = onRestartClick
     ) { paddingValues, scrollBehavior, _ ->
@@ -49,15 +47,18 @@ fun AnimationPage(
                 .padding(top = TOP_BAR_SPACER, bottom = 16.dp)
         ) {
             SplicedColumnGroup(
-                title = stringResource(R.string.group_module_function),
+                title = stringResource(R.string.feature_extra),
                 entries = buildList {
-                    entry("exit_animation") { shape ->
-                        OptionWidget(
-                            modifier = Modifier.clip(shape),
+                    entry("aosp_transition") {
+                        SwitchWidget(
                             iconRes = R.drawable.animation,
-                            title = stringResource(R.string.exit_animation),
-                            description = stringResource(R.string.exit_animation_desc),
-                            onClick = { ExitAnimationActivity.start(context) }
+                            title = stringResource(R.string.aosp_transition),
+                            description = stringResource(R.string.aosp_transition_desc),
+                            checked = config.aospTransition,
+                            onCheckedChange = {
+                                store.setAospTransition(it)
+                                onConfigChange(config.copy(aospTransition = it))
+                            }
                         )
                     }
                 }

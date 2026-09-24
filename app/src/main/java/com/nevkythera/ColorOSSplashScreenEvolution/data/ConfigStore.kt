@@ -37,6 +37,9 @@ data class CseConfig(
     /** 还原 AOSP 应用过渡动画（含小窗过渡）。 */
     val aospTransition: Boolean = false,
 
+    /** 详细日志（写入 logcat，供排查；默认开启）。 */
+    val detailedLog: Boolean = true,
+
     /** 单个粒子自身的运动时长（毫秒，100~2000，默认 600）。 */
     val particleTimeMs: Int = PARTICLE_TIME_DEFAULT,
     /**
@@ -125,6 +128,7 @@ data class CseConfig(
         const val KEY_REPLACE_ICON = "replace_icon"
         const val KEY_PARTICLE_TIME_MS = "exit_particle_time_ms"
         const val KEY_AOSP_TRANSITION = "aosp_transition"
+        const val KEY_DETAILED_LOG = "detailed_log"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
@@ -162,6 +166,7 @@ class ConfigStore(context: Context) {
         shrinkIcon = CseConfig.normalizeShrinkIcon(repo.getInt(CseConfig.KEY_SHRINK_ICON, 0)),
         replaceIcon = repo.getBoolean(CseConfig.KEY_REPLACE_ICON, false),
         aospTransition = repo.getBoolean(CseConfig.KEY_AOSP_TRANSITION, false),
+        detailedLog = repo.getBoolean(CseConfig.KEY_DETAILED_LOG, true),
         particleTimeMs = CseConfig.normalizeParticleTime(
             repo.getInt(CseConfig.KEY_PARTICLE_TIME_MS, CseConfig.PARTICLE_TIME_DEFAULT)
         ),
@@ -189,6 +194,8 @@ class ConfigStore(context: Context) {
     fun setShrinkIcon(value: Int) =
         update(CseConfig.KEY_SHRINK_ICON, CseConfig.normalizeShrinkIcon(value))
     fun setReplaceIcon(value: Boolean) = update(CseConfig.KEY_REPLACE_ICON, value)
+    fun setDetailedLog(value: Boolean) = update(CseConfig.KEY_DETAILED_LOG, value)
+
     fun setAospTransition(value: Boolean) = update(CseConfig.KEY_AOSP_TRANSITION, value)
 
     fun setParticleTimeMs(value: Int) =

@@ -146,11 +146,24 @@ class SplashParticleView(
                         tys[n] = smallOffset(rnd, 4, 14)
                         vys[n] = (dp(5f) + rnd.nextInt(dp(8f).coerceAtLeast(1))).toFloat()
                     } else {
-                        // 扩散：大爆炸——方向 360° 均匀随机，位移幅度很大
-                        val ang = rnd.nextFloat() * TWO_PI
-                        val rr = dp(220f) + rnd.nextInt(dp(380f).coerceAtLeast(1))
-                        txs[n] = kotlin.math.cos(ang) * rr
-                        tys[n] = kotlin.math.sin(ang) * rr
+                        // 扩散：以图标中心为原点向外爆炸（方向 = 粒子相对中心的单位向量），
+                        // 而不是每颗粒子随机乱跑。
+                        val dxc = gx - sw / 2f
+                        val dyc = gy - sh / 2f
+                        val len = kotlin.math.hypot(dxc, dyc)
+                        val amp = dp(220f) + rnd.nextInt(dp(380f).coerceAtLeast(1))
+                        if (len < 1f) {
+                            val ang = rnd.nextFloat() * TWO_PI
+                            txs[n] = kotlin.math.cos(ang) * amp
+                            tys[n] = kotlin.math.sin(ang) * amp
+                        } else {
+                            // 反解：绘制公式为 x = x0 + (x0-cx)/cx * tx * f，
+                            // 要让位移 = 单位方向 × amp，则 tx 需除以 (x0-cx)/cx。
+                            txs[n] = if (kotlin.math.abs(dxc) < 0.5f) 0f
+                            else dxc / len * amp * (sw / 2f) / dxc
+                            tys[n] = if (kotlin.math.abs(dyc) < 0.5f) 0f
+                            else dyc / len * amp * (sh / 2f) / dyc
+                        }
                         vys[n] = 0f
                     }
                     r0s[n] = perPx / 2f * (0.85f + rnd.nextFloat() * 0.3f)
@@ -223,6 +236,8 @@ class SplashParticleView(
             val f = raw
             val x = x0[i] + (x0[i] - centerX) / centerX * tx[i] * f
             val y = y0[i] + (y0[i] - centerY) / centerY * ty[i] * f - (f * vY[i]) * (f * vY[i])
+            // 飞出屏幕后立即销毁（不再绘制），省掉无意义的绘制开销
+            if (x < 0f || y < 0f || x > w || y > h) continue
             val r = (r0[i] * (1f - f)).coerceAtLeast(0.5f)
             val a = alpha0[i] * min(1.2f - f, 1f)
             if (a <= 1f) continue

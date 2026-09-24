@@ -158,7 +158,9 @@
     <string name="feature_extra">Additional features</string>
     <string name="feature_extra_desc">Extra toggles that are not part of the main features</string>
     <string name="aosp_transition">Restore AOSP transition animations</string>
-    <string name="aosp_transition_desc">Restore ColorOS-customized activity and small-window transitions to the AOSP slide-in with fade (launcher and recents are unaffected)</string>
+    <string name="aosp_transition_desc">Restore activity transitions to AOSP</string>
+    <string name="detailed_log">Detailed logging</string>
+    <string name="detailed_log_desc">Write module runtime details to logcat for troubleshooting; when off only warnings and errors are kept</string>
 
     <!-- Credits -->
     <string name="credits_title">Credits</string>

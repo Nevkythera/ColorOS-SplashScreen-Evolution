@@ -149,7 +149,9 @@
     <string name="feature_extra">附加功能</string>
     <string name="feature_extra_desc">不属于主功能链路的附加开关</string>
     <string name="aosp_transition">还原 AOSP 过渡动画</string>
-    <string name="aosp_transition_desc">把 ColorOS 定制的应用过渡与小窗过渡还原为 AOSP 的左右推入＋淡入淡出（不含桌面与最近任务）</string>
+    <string name="aosp_transition_desc">将activity转场动画回退至AOSP</string>
+    <string name="detailed_log">详细日志</string>
+    <string name="detailed_log_desc">输出模块运行细节到 logcat，便于排查问题；关闭后仅保留警告与错误</string>
 
     <!-- 鸣谢 -->
     <string name="credits_title">鸣谢</string>

@@ -448,6 +448,18 @@ private fun HomePage(
                         }
                     )
                 }
+                entry("detailed_log") {
+                    SwitchWidget(
+                        iconRes = R.drawable.log,
+                        title = stringResource(R.string.detailed_log),
+                        description = stringResource(R.string.detailed_log_desc),
+                        checked = config.detailedLog,
+                        onCheckedChange = {
+                            store.setDetailedLog(it)
+                            onConfigChange(config.copy(detailedLog = it))
+                        }
+                    )
+                }
                 entry("language") {
                     //   顺序很重要 —— **先持久化，再重建**。
                     //   LocaleManager.apply() 内部会 recreate()，新 Activity 起来时

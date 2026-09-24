@@ -90,8 +90,6 @@ class CoSSplashModule : XposedModule() {
         const val CLS_ADAPTIVE_SMOOTH_SHELL_ANIM =
             "com.android.wm.shell.transition.AdaptiveSmoothShellAnimManager"
 
-        const val CLS_CROSS_BACK_ANIM_EXT =
-            "com.android.wm.shell.back.CrossBackAnimationExt"
 
         const val CLS_CROSS_BACK_ANIM =
             "com.android.wm.shell.back.CrossActivityBackAnimation"
@@ -207,6 +205,13 @@ class CoSSplashModule : XposedModule() {
 
         /** 还原 AOSP 过渡动画（附加功能）。 */
         const val KEY_AOSP_TRANSITION = "aosp_transition"
+
+        /** 详细日志开关（默认开）。 */
+        const val KEY_DETAILED_LOG = "detailed_log"
+
+        /** 关掉后只保留 WARN/ERROR。 */
+        @Volatile
+        var DETAILED_LOG = true
 
         /** 开关状态：true 时放弃 ColorOS 的过渡动画覆盖，回落 AOSP 资源动画。 */
         @Volatile
@@ -338,8 +343,14 @@ class CoSSplashModule : XposedModule() {
 
     // ================================================================ 生命周期
 
+    /** 详细日志开关：关掉后只保留 WARN/ERROR。 */
+    private fun cseLog(priority: Int, tag: String, message: String) {
+        if (priority < Log.WARN && !DETAILED_LOG) return
+        log(priority, tag, message)
+    }
+
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=module_loaded result=ok process=${param.processName} " +
                 "api=${getApiVersion()} framework=${getFrameworkName()} version=${getFrameworkVersion()}"
@@ -354,7 +365,7 @@ class CoSSplashModule : XposedModule() {
 
     
     override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=module_loaded result=ok process=system_server " +
                 "api=${getApiVersion()} framework=${getFrameworkName()} version=${getFrameworkVersion()}"
@@ -418,8 +429,9 @@ class CoSSplashModule : XposedModule() {
                 .getInt(KEY_EXIT_PARTICLE_DURATION_MS, EXIT_DURATION_DEFAULT)
                 .coerceIn(EXIT_DURATION_MIN, EXIT_DURATION_MAX)
             AOSP_TRANSITION = prefs.getBoolean(KEY_AOSP_TRANSITION, false)
+            DETAILED_LOG = prefs.getBoolean(KEY_DETAILED_LOG, true)
             if (logResult) {
-                log(
+                cseLog(
                     Log.INFO, TAG,
                     "event=remote_config result=ok force_native=$FORCE_NATIVE " +
                         "disable_preview=$DISABLE_PREVIEW round_corner=$DRAW_ROUND_CORNER " +
@@ -466,19 +478,19 @@ class CoSSplashModule : XposedModule() {
         if (pkg == PROCESS_SYSTEM && !hotStartInstalled) {
             if (runCatching { param.classLoader.loadClass(CLS_ACTIVITY_RECORD) }.isSuccess) {
                 if (!routedPackages.add("$pkg#system")) {
-                    log(Log.INFO, TAG, "event=install_skipped result=skip reason=already_installed package=$pkg")
+                    cseLog(Log.INFO, TAG, "event=install_skipped result=skip reason=already_installed package=$pkg")
                     return
                 }
                 val sysCl = param.classLoader
                 readRemoteConfig()
-                log(
+                cseLog(
                     Log.INFO, TAG,
                     "event=route_match result=ok route=system_server package=$pkg hooks=J(hot_start) via=fallback"
                 )
                 hotStartInstalled = true
                 installStage("J_hot_start") { installHotStartSplashHook(sysCl) }
             } else {
-                log(
+                cseLog(
                     Log.INFO, TAG,
                     "event=route_skip result=skip reason=not_system_server package=$pkg id=android_hot_start"
                 )
@@ -487,11 +499,11 @@ class CoSSplashModule : XposedModule() {
         }
 
         if (pkg != PROCESS_SYSTEMUI) {
-            log(Log.INFO, TAG, "event=route_skip result=skip reason=package_mismatch package=$pkg")
+            cseLog(Log.INFO, TAG, "event=route_skip result=skip reason=package_mismatch package=$pkg")
             return
         }
         if (!routedPackages.add(pkg)) {
-            log(Log.INFO, TAG, "event=install_skipped result=skip reason=already_installed package=$pkg")
+            cseLog(Log.INFO, TAG, "event=install_skipped result=skip reason=already_installed package=$pkg")
             return
         }
 
@@ -501,7 +513,7 @@ class CoSSplashModule : XposedModule() {
         // 新拉起的 SystemUI 进程立刻使用新值。
         readRemoteConfig()
 
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=route_match result=ok route=systemui package=$pkg " +
                 "hooks=A(force_enable_splash_screen)+B+C+D+E+F+G(icon)+H(bg)+I(build) high_risk=true"
@@ -522,8 +534,6 @@ class CoSSplashModule : XposedModule() {
         //     与 build() 是否被 ROM 绕过、返回的 view 是不是最终那一个都无关。
         installStage("I3_splash_view_attached") { installSplashViewAttachedHook(cl) }
         installStage("J_aosp_transition") { installAospTransitionHook(cl) }
-        installStage("K_aosp_back_anim") { installAospBackAnimHook(cl) }
-        installStage("L_back_probe") { installBackProbeHook(cl) }
     }
 
     // ================================================================ 热重载
@@ -572,7 +582,7 @@ class CoSSplashModule : XposedModule() {
                                 val original = args[idx] as Int
                                 args[idx] = TYPE_SPLASH_SCREEN
                                 if (original != TYPE_SPLASH_SCREEN) {
-                                    log(
+                                    cseLog(
                                         Log.INFO, TAG,
                                         "event=hook_hit id=drawer_make_content_view " +
                                             "original=$original argIndex=$idx " +
@@ -585,7 +595,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed()
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=drawer_make_content_view " +
                     "target=SplashscreenContentDrawer#makeSplashScreenContentView " +
@@ -617,7 +627,7 @@ class CoSSplashModule : XposedModule() {
                         refreshConfigSilently()
                         val raw = chain.proceed() as? Boolean ?: false
                         if (FORCE_NATIVE && raw) {
-                            log(
+                            cseLog(
                                 Log.INFO, TAG,
                                 "event=hook_hit id=oplus_window_attrs_if_present original=true " +
                                     "decision=force_reparse_native_attrs -> false"
@@ -628,7 +638,7 @@ class CoSSplashModule : XposedModule() {
                         }
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=oplus_window_attrs_if_present " +
                     "target=OplusShellStartingWindowManager#getWindowAttrsIfPresent count=${methods.size}"
@@ -727,7 +737,7 @@ class CoSSplashModule : XposedModule() {
                             runCatching {
                                 val cur = fSuggest.get(self)
                                 if (cur != TYPE_SPLASH_SCREEN) {
-                                    log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mSuggestType original=$cur decision=force_native -> $TYPE_SPLASH_SCREEN")
+                                    cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mSuggestType original=$cur decision=force_native -> $TYPE_SPLASH_SCREEN")
                                     fSuggest.set(self, TYPE_SPLASH_SCREEN)
                                 }
                             }.onFailure { log(Log.WARN, TAG, "event=hook_error id=builder_build field=mSuggestType", it) }
@@ -738,7 +748,7 @@ class CoSSplashModule : XposedModule() {
                             runCatching {
                                 val cur = fOverlay.get(self)
                                 if (cur != null) {
-                                    log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mOverlayDrawable original=${cur.javaClass.simpleName} decision=clear -> null")
+                                    cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mOverlayDrawable original=${cur.javaClass.simpleName} decision=clear -> null")
                                     fOverlay.set(self, null)
                                 }
                             }.onFailure { log(Log.WARN, TAG, "event=hook_error id=builder_build field=mOverlayDrawable", it) }
@@ -750,7 +760,7 @@ class CoSSplashModule : XposedModule() {
                                 val cur = fForceBigIcon.get(self)
                                 if (cur != true) {
                                     fForceBigIcon.set(self, true)
-                                    log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mForceBigIcon original=$cur decision=force_big_icon -> true")
+                                    cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mForceBigIcon original=$cur decision=force_big_icon -> true")
                                 }
                             }.onFailure { log(Log.WARN, TAG, "event=hook_error id=builder_build field=mForceBigIcon", it) }
                         }
@@ -762,7 +772,7 @@ class CoSSplashModule : XposedModule() {
                                 val cur = fSupportPreview.get(self)
                                 if (cur != false) {
                                     fSupportPreview.set(self, false)
-                                    log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mIsSupportSplashScreenPreview original=$cur decision=force_no_preview -> false")
+                                    cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mIsSupportSplashScreenPreview original=$cur decision=force_no_preview -> false")
                                 }
                             }.onFailure { log(Log.WARN, TAG, "event=hook_error id=builder_build field=mIsSupportSplashScreenPreview", it) }
                         }
@@ -780,7 +790,7 @@ class CoSSplashModule : XposedModule() {
                                     val old = fThemeColor.get(self)
                                     if (old != color) {
                                         fThemeColor.set(self, color)
-                                        log(
+                                        cseLog(
                                             Log.INFO, TAG,
                                             "event=hook_hit id=builder_build field=mThemeColor " +
                                                 "original=$old decision=replace_bg -> $color"
@@ -817,7 +827,7 @@ class CoSSplashModule : XposedModule() {
                                 } else {
                                     drawerGetWindowAttrsMethod.invoke(drawer, context, attrs)
                                 }
-                                log(
+                                cseLog(
                                     Log.INFO, TAG,
                                     "event=hook_hit id=builder_build decision=reparse_window_attrs -> mTmpAttrs"
                                 )
@@ -839,7 +849,7 @@ class CoSSplashModule : XposedModule() {
                                 val cur = fSplashIcon.get(attrs)
                                 if (cur != null) {
                                     fSplashIcon.set(attrs, null)
-                                    log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mSplashScreenIcon decision=clear -> null")
+                                    cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mSplashScreenIcon decision=clear -> null")
                                 }
                             }
                         }.onFailure {
@@ -857,7 +867,7 @@ class CoSSplashModule : XposedModule() {
                                     val cur = fBranding.get(attrs)
                                     if (cur != null) {
                                         fBranding.set(attrs, null)
-                                        log(Log.INFO, TAG, "event=hook_hit id=builder_build field=mBrandingImage decision=clear -> null")
+                                        cseLog(Log.INFO, TAG, "event=hook_hit id=builder_build field=mBrandingImage decision=clear -> null")
                                     }
                                 }
                             }.onFailure {
@@ -868,7 +878,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed()
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=builder_build " +
                     "target=SplashViewBuilder#build count=${methods.size} reparseAttrs=${drawerGetWindowAttrsMethod != null}"
@@ -917,14 +927,14 @@ class CoSSplashModule : XposedModule() {
                     .intercept { chain ->
                         refreshConfigSilently()
                         if (FORCE_NATIVE) {
-                            log(Log.INFO, TAG, "event=hook_hit id=oplus_set_content_bg decision=block_xml_overlay")
+                            cseLog(Log.INFO, TAG, "event=hook_hit id=oplus_set_content_bg decision=block_xml_overlay")
                             null
                         } else {
                             chain.proceed()
                         }
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=oplus_set_content_bg " +
                     "target=OplusShellStartingWindowManager#setContentViewBackground count=${methods.size}"
@@ -961,7 +971,7 @@ class CoSSplashModule : XposedModule() {
                         val args = chain.args.toTypedArray()
                         val original = args.getOrNull(0)
                         if (FORCE_NATIVE && original is Int && original != EXIT_ANIM_RIPPLE) {
-                            log(
+                            cseLog(
                                 Log.INFO, TAG,
                                 "event=hook_hit id=exit_anim_utils original=$original " +
                                     "decision=force_ripple -> $EXIT_ANIM_RIPPLE"
@@ -972,7 +982,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed()
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=exit_anim_utils " +
                     "target=SplashScreenExitAnimationUtils#startAnimations count=${methods.size}"
@@ -1006,7 +1016,7 @@ class CoSSplashModule : XposedModule() {
                         runCatching {
                             val current = field.get(chain.thisObject)
                             if (current != EXIT_ANIM_RIPPLE) {
-                                log(
+                                cseLog(
                                     Log.INFO, TAG,
                                     "event=hook_hit id=exit_anim_ctor original=$current " +
                                         "decision=force_ripple -> $EXIT_ANIM_RIPPLE"
@@ -1019,7 +1029,7 @@ class CoSSplashModule : XposedModule() {
                     }
                     null
                 }
-            log(Log.INFO, TAG, "event=install_hook result=ok id=exit_anim_ctor target=SplashScreenExitAnimation#<init>")
+            cseLog(Log.INFO, TAG, "event=install_hook result=ok id=exit_anim_ctor target=SplashScreenExitAnimation#<init>")
         } catch (t: Throwable) {
             logHookFailure("exit_anim_ctor", t)
         }
@@ -1119,7 +1129,7 @@ class CoSSplashModule : XposedModule() {
                     // 参数顺序 (IIIZZF)：index 3 = isBgComplex（smali p4）
                     if (FORCE_NATIVE && args.size > 3 && args[3] != true) {
                         args[3] = true
-                        log(
+                        cseLog(
                             Log.INFO, TAG,
                             "event=hook_hit id=icon_color_is_bg_complex " +
                                 "decision=keep_icon_background isBgComplex=false -> true"
@@ -1127,7 +1137,7 @@ class CoSSplashModule : XposedModule() {
                     }
                     chain.proceed(args)
                 }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=icon_color_is_bg_complex target=IconColor#<init>"
             )
@@ -1193,7 +1203,7 @@ class CoSSplashModule : XposedModule() {
                                         args[0] = newIcon
                                         iconReplaced = true
                                         currentIconDrawable = newIcon
-                                        log(
+                                        cseLog(
                                             Log.INFO, TAG,
                                             "event=hook_hit id=builder_create_icon_drawable " +
                                                 "decision=replace_icon pkg=$pkg " +
@@ -1214,7 +1224,7 @@ class CoSSplashModule : XposedModule() {
                                         }
                                         iconStateDecided = true
                                         if (!iconReplaced) currentIconDrawable = d
-                                        log(
+                                        cseLog(
                                             Log.INFO, TAG,
                                             "event=icon_state pkg=$pkg " +
                                                 "shrinkMode=$SHRINK_ICON iconSize=$iconSize " +
@@ -1234,7 +1244,7 @@ class CoSSplashModule : XposedModule() {
                                         if (newSize > 0) {
                                             fFinalIconSize.set(self, newSize)
                                             iconShrinkApplied = true
-                                            log(
+                                            cseLog(
                                                 Log.INFO, TAG,
                                                 "event=hook_hit id=builder_create_icon_drawable " +
                                                     "decision=shrink mFinalIconSize=$cur -> $newSize"
@@ -1249,7 +1259,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed(args)
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=builder_create_icon_drawable " +
                     "target=${cls.name}#createIconDrawable count=${methods.size} " +
@@ -1290,7 +1300,7 @@ class CoSSplashModule : XposedModule() {
                                 if (newSize > 0) {
                                     args[0] = newSize
                                     iconShrinkApplied = true
-                                    log(
+                                    cseLog(
                                         Log.INFO, TAG,
                                         "event=hook_hit id=builder_fill_view_with_icon_shrink " +
                                             "decision=shrink_fallback iconSize=$cur -> $newSize"
@@ -1302,7 +1312,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed()
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=builder_fill_view_with_icon_shrink " +
                     "target=${cls.name}#fillViewWithIcon count=${methods.size}"
@@ -1359,7 +1369,7 @@ class CoSSplashModule : XposedModule() {
                                 cl, appContext, original, pkgName, pkgActivity
                             )
                             if (processed !== original) {
-                                log(
+                                cseLog(
                                     Log.INFO, TAG,
                                     "event=hook_hit id=oplus_get_icon_ext " +
                                         "decision=apply_replaced_drawable pkg=$pkgName " +
@@ -1372,7 +1382,7 @@ class CoSSplashModule : XposedModule() {
                         }
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=oplus_get_icon_ext " +
                     "target=OplusShellStartingWindowManager#getIconExt count=${methods.size}"
@@ -1420,7 +1430,7 @@ class CoSSplashModule : XposedModule() {
                             cl, appContext, original, pkgName, pkgActivity
                         )
                         if (processed !== original) {
-                            log(
+                            cseLog(
                                 Log.INFO, TAG,
                                 "event=hook_hit id=$id " +
                                     "decision=apply_replaced_drawable pkg=$pkgName " +
@@ -1430,7 +1440,7 @@ class CoSSplashModule : XposedModule() {
                         return@intercept processed
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=$id target=$className#getIcon count=${methods.size}"
             )
@@ -1484,7 +1494,7 @@ class CoSSplashModule : XposedModule() {
                                             .TransparentAdaptiveIconDrawable(drawable)
                                     }.getOrNull()
                                     if (wrapped != null) {
-                                        log(
+                                        cseLog(
                                             Log.INFO, TAG,
                                             "event=hook_hit id=base_icon_factory_normalize " +
                                                 "decision=force_no_shrink original_scale=$originalScale -> 1.0"
@@ -1493,7 +1503,7 @@ class CoSSplashModule : XposedModule() {
                                     }
                                 }
                                 // 无法包裹时仍放行（scale 已改成 1.0）
-                                log(
+                                cseLog(
                                     Log.INFO, TAG,
                                     "event=hook_hit id=base_icon_factory_normalize " +
                                         "decision=force_scale_only original_scale=$originalScale -> 1.0"
@@ -1555,7 +1565,7 @@ class CoSSplashModule : XposedModule() {
                                         val bitmap = GraphicUtils.drawable2Bitmap(drawable, size)
                                         //   立刻采样出主色，晚于此刻就再也拿不到这份像素了）。
                                         registerFinalIcon(bitmap)
-                                        log(
+                                        cseLog(
                                             Log.INFO, TAG,
                                             "event=hook_hit id=base_icon_factory_create_icon_bitmap " +
                                                 "decision=avoid_shrink_by_system size=$size"
@@ -1577,7 +1587,7 @@ class CoSSplashModule : XposedModule() {
                 }
             }
 
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=base_icon_factory " +
                     "target=BaseIconFactory normalize=${normalizeMethods.size} createIconBitmap=${createIconBitmapMethods.size}"
@@ -1622,7 +1632,7 @@ class CoSSplashModule : XposedModule() {
                     else -> pm.getApplicationIcon(targetPkg)
                 }
             }.onSuccess {
-                log(
+                cseLog(
                     Log.INFO, TAG,
                     "event=icon_replace result=ok pkg=$targetPkg activity=$pkgActivity " +
                         "newClass=${it.javaClass.simpleName}"
@@ -1645,7 +1655,7 @@ class CoSSplashModule : XposedModule() {
             else -> false
         }
         //   这里把缩放判定的全部输入输出打出来，便于从 LSPosed 日志直接确诊。
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=icon_state pkg=$targetPkg shrinkMode=$SHRINK_ICON " +
                 "iconSize=$iconSize intrinsic=${drawable.intrinsicWidth} " +
@@ -1672,7 +1682,7 @@ class CoSSplashModule : XposedModule() {
         //     并且**此处的采样整体删除**，连这一个隐患也一并消除。
         //
         //   保留这段日志便于在真机日志里确认「最终图标」链路是否走通。
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=icon_state_registered pkg=$targetPkg " +
                 "class=${drawable.javaClass.simpleName} " +
@@ -1789,7 +1799,7 @@ class CoSSplashModule : XposedModule() {
                         result
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=splash_view_builder_build " +
                     "target=SplashScreenView\$Builder#build count=${methods.size} gate=live"
@@ -1857,7 +1867,7 @@ class CoSSplashModule : XposedModule() {
                         val needForce = original == AR_STARTING_WINDOW_TYPE_SNAPSHOT
 
                         if (needForce) {
-                            log(
+                            cseLog(
                                 Log.INFO, TAG,
                                 "event=hook_hit id=android_hot_start_splash " +
                                     "decision=force_splash_screen paramCount=${m.parameterCount} " +
@@ -1869,7 +1879,7 @@ class CoSSplashModule : XposedModule() {
                         original
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=android_hot_start_splash " +
                     "target=$CLS_ACTIVITY_RECORD#getStartingWindowType count=${methods.size} " +
@@ -1909,7 +1919,7 @@ class CoSSplashModule : XposedModule() {
                         result
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=wm_shell_builder_decor " +
                     "target=${cls.name}#build count=${methods.size} gate=live"
@@ -1951,7 +1961,7 @@ class CoSSplashModule : XposedModule() {
 
         if (REMOVE_ICON) {
             val hidden = hideAllIconViews(view)
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=hook_hit id=remove_icon source=$source decision=hide_all_icons " +
                     "hiddenCount=$hidden"
@@ -1963,7 +1973,7 @@ class CoSSplashModule : XposedModule() {
         if (iconDecorApplied) return
 
         val iconSize = appIconSize(cl)
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=blur_check source=$source " +
                 "needShrink=$currentIsNeedShrinkIcon " +
@@ -2045,7 +2055,7 @@ class CoSSplashModule : XposedModule() {
                 splashScreenView, morphView, findIconView(splashScreenView), size, what = "morph"
             )
 
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=hook_hit id=add_morph_shape source=$source iconSize=$iconSize " +
                     "scale=$scale size=$size colorType=$MORPH_SHAPE_COLOR_TYPE " +
@@ -2136,7 +2146,7 @@ class CoSSplashModule : XposedModule() {
                         return@runCatching
                     }
                     morphView.setTint(color)
-                    log(
+                    cseLog(
                         Log.INFO, TAG,
                         "event=hook_hit id=morph_icon_color " +
                             "source=$source " +
@@ -2187,7 +2197,7 @@ class CoSSplashModule : XposedModule() {
         what: String
     ) {
         if (iconView == null) {
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=hook_hit id=align_icon target=$what reason=icon_view_null keep=center"
             )
@@ -2221,7 +2231,7 @@ class CoSSplashModule : XposedModule() {
                 leftMargin = left
                 topMargin = top
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=hook_hit id=align_icon target=$what why=$why cx=$cx cy=$cy size=$size " +
                     "parentWH=${parent.width}x${parent.height} " +
@@ -2254,7 +2264,7 @@ class CoSSplashModule : XposedModule() {
                 if (ok || tries >= 10) {
                     runCatching { parent.viewTreeObserver.removeOnPreDrawListener(this) }
                     if (!ok) {
-                        log(
+                        cseLog(
                             Log.INFO, TAG,
                             "event=hook_hit id=align_icon target=$what " +
                                 "reason=icon_not_laid_out keep=center"
@@ -2298,7 +2308,7 @@ class CoSSplashModule : XposedModule() {
             val dark = appContext?.let { isDarkMode(it) } ?: false
             val color = runCatching { paletteAccentFromBitmap(copy, dark) }.getOrNull()
             currentFinalIconAccentColor = color
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=final_icon_color " +
                     "result=${if (color != null) "ok" else "null"} " +
@@ -2462,7 +2472,7 @@ class CoSSplashModule : XposedModule() {
                         result
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=splash_view_attached " +
                     "target=android.window.SplashScreenView#onAttachedToWindow " +
@@ -2515,7 +2525,7 @@ class CoSSplashModule : XposedModule() {
                 }
             }
             iconView.clipToOutline = true
-            log(Log.INFO, TAG, "event=hook_hit id=draw_icon_round_corner iconSize=$iconSize rate=$cornerRate")
+            cseLog(Log.INFO, TAG, "event=hook_hit id=draw_icon_round_corner iconSize=$iconSize rate=$cornerRate")
         }.onFailure {
             log(Log.WARN, TAG, "event=hook_error id=draw_icon_round_corner", it)
         }
@@ -2556,7 +2566,7 @@ class CoSSplashModule : XposedModule() {
                         val raw = chain.proceed() as? Int
                         if (FORCE_NATIVE && CHANGE_BG_COLOR_TYPE != BG_TYPE_NONE) {
                             getBackgroundColor(cl, appContext)?.let { color ->
-                                log(
+                                cseLog(
                                     Log.INFO, TAG,
                                     "event=hook_hit id=drawer_get_bg_color_from_cache " +
                                         "original=$raw decision=replace_bg -> $color"
@@ -2567,7 +2577,7 @@ class CoSSplashModule : XposedModule() {
                         raw
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=drawer_get_bg_color_from_cache " +
                     "target=SplashscreenContentDrawer#getBGColorFromCache count=${methods.size}"
@@ -2600,7 +2610,7 @@ class CoSSplashModule : XposedModule() {
                     val raw = chain.proceed() as? Int
                     if (FORCE_NATIVE && CHANGE_BG_COLOR_TYPE != BG_TYPE_NONE) {
                         getBackgroundColor(cl, appContext)?.let { color ->
-                            log(
+                            cseLog(
                                 Log.INFO, TAG,
                                 "event=hook_hit id=drawer_get_bg_color_from_cache " +
                                     "original=$raw decision=replace_bg -> $color"
@@ -2611,7 +2621,7 @@ class CoSSplashModule : XposedModule() {
                     raw
                 }
         }
-        log(
+        cseLog(
             Log.INFO, TAG,
             "event=install_hook result=ok id=drawer_get_bg_color_from_cache " +
                 "target=SplashscreenContentDrawer#getBGColorFromCache count=${methods.size} (loose)"
@@ -2651,7 +2661,7 @@ class CoSSplashModule : XposedModule() {
                         else
                             dynamicDarkColorScheme(appContext).background.toArgb()
                     }
-                    log(
+                    cseLog(
                         Log.INFO, TAG,
                         "event=bg_color source=monet mode=$BG_COLOR_MODE dark=$dark " +
                             "color=#${Integer.toHexString(color)}"
@@ -2715,7 +2725,7 @@ class CoSSplashModule : XposedModule() {
             if (activityInfo != null) {
                 currentPackageName = activityInfo.packageName ?: ""
                 if (currentPackageName.isNotEmpty()) {
-                    log(Log.INFO, TAG, "event=package_info package=$currentPackageName")
+                    cseLog(Log.INFO, TAG, "event=package_info package=$currentPackageName")
                 }
             }
         }.onFailure {
@@ -2811,7 +2821,7 @@ class CoSSplashModule : XposedModule() {
                         chain.proceed()
                     }
             }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=exit_particle " +
                     "target=SplashScreenExitAnimationUtils#startAnimations " +
@@ -2888,7 +2898,7 @@ class CoSSplashModule : XposedModule() {
             )
             particleView.start()
 
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=hook_hit id=exit_particle decision=play_particle " +
                     "duration=$durationMs size=${w}x$h sample=${bw}x$bh"
@@ -2950,12 +2960,12 @@ class CoSSplashModule : XposedModule() {
                         if (!FORCE_NATIVE) return@intercept raw
                         val mapped = transform(original)
                         if (mapped != original) {
-                            log(Log.INFO, TAG, "event=hook_hit id=$id label=$label original=$original decision=force_native -> $mapped")
+                            cseLog(Log.INFO, TAG, "event=hook_hit id=$id label=$label original=$original decision=force_native -> $mapped")
                         }
                         mapped
                     }
             }
-            log(Log.INFO, TAG, "event=install_hook result=ok id=$id target=$label count=${methods.size}")
+            cseLog(Log.INFO, TAG, "event=install_hook result=ok id=$id target=$label count=${methods.size}")
         } catch (t: Throwable) {
             logHookFailure(id, t)
         }
@@ -2965,120 +2975,12 @@ class CoSSplashModule : XposedModule() {
      * 只读探针：记录预测返回每帧的变换参数（不做任何修改），
      * 用于与 AOSP 16 源码同阶段数值对照，定位 ROM 改了哪一项。
      */
-    private fun installBackProbeHook(cl: ClassLoader) {
-        try {
-            var logged = 0
-            val cls = cl.loadClass(CLS_CROSS_BACK_ANIM)
-            val methods = cls.declaredMethods.filter {
-                it.name == "applyTransform" && it.parameterCount == 5
-            }
-            if (methods.isEmpty()) {
-                log(
-                    Log.WARN, TAG,
-                    "event=install_hook result=skip code=CSE-SIG-001 " +
-                        "id=back_probe reason=method_not_found"
-                )
-                return
-            }
-            methods.forEach { m ->
-                m.isAccessible = true
-                hook(m)
-                    .setId("back_probe")
-                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
-                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
-                    .intercept { chain ->
-                        if (logged < 60) {
-                            runCatching {
-                                val progress = chain.args.filterIsInstance<Float>().firstOrNull()
-                                val tr = chain.args
-                                    .filterIsInstance<android.view.animation.Transformation>()
-                                    .firstOrNull()
-                                val v = FloatArray(9)
-                                tr?.matrix?.getValues(v)
-                                log(
-                                    Log.INFO, TAG,
-                                    "event=back_probe p=$progress sx=${v[0]} sy=${v[4]} " +
-                                        "tx=${v[2]} ty=${v[5]} a=${tr?.alpha}"
-                                )
-                                logged++
-                            }
-                        }
-                        chain.proceed()
-                    }
-            }
-            log(
-                Log.INFO, TAG,
-                "event=install_hook result=ok id=back_probe " +
-                    "target=${cls.name}#applyTransform count=${methods.size} gate=live"
-            )
-        } catch (t: Throwable) {
-            logHookFailure("back_probe", t)
-        }
-    }
-
-    private fun installAospBackAnimHook(cl: ClassLoader) {
-        try {
-            val cls = cl.loadClass(CLS_CROSS_BACK_ANIM_EXT)
-            var count = 0
-
-            // ① 门控：不接管背景色
-            cls.declaredMethods.filter {
-                it.name == "shouldHookGetBackGroundColor" && it.parameterCount == 1
-            }.forEach { m ->
-                m.isAccessible = true
-                hook(m)
-                    .setId("aosp_back_anim")
-                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
-                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
-                    .intercept { chain ->
-                        refreshConfigSilently()
-                        log(Log.INFO, TAG, "event=aosp_back_anim_call m=shouldHook enabled=$AOSP_TRANSITION")
-                        if (AOSP_TRANSITION) false else chain.proceed()
-                    }
-                count++
-            }
-
-            // ② 只旁路 ROM 的「背景/遮罩」分支（定制观感的来源）；
-            //    不碰 updateGestureBackProgress / initBackStartTouchX（它们是驱动动画本身的）
-            listOf(
-                "applyTransformForOpeningTargetScrim",
-                "applyTransformForOpeningTargetCancelScrim",
-                "applyTransformForCommitOpeningTargetScrimAlpha"
-            ).forEach { name ->
-                cls.declaredMethods.filter { it.name == name && it.parameterCount == 1 }
-                    .forEach { m ->
-                        m.isAccessible = true
-                        hook(m)
-                            .setId("aosp_back_anim")
-                            .setPriority(XposedInterface.PRIORITY_DEFAULT)
-                            .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
-                            .intercept { chain ->
-                                refreshConfigSilently()
-                                log(Log.INFO, TAG, "event=aosp_back_anim_call m=$name enabled=$AOSP_TRANSITION")
-                                if (AOSP_TRANSITION) null else chain.proceed()
-                            }
-                        count++
-                    }
-            }
-
-            if (count == 0) {
-                log(
-                    Log.WARN, TAG,
-                    "event=install_hook result=skip code=CSE-SIG-001 " +
-                        "id=aosp_back_anim reason=method_not_found"
-                )
-                return
-            }
-            log(
-                Log.INFO, TAG,
-                "event=install_hook result=ok id=aosp_back_anim " +
-                    "target=${cls.name} count=$count gate=live"
-            )
-        } catch (t: Throwable) {
-            logHookFailure("aosp_back_anim", t)
-        }
-    }
-
+    /**
+     * 框架侧（与前辈同一层）：TransitionAnimation 用 mIsOplusAnimRes /
+     * isSettingsPredictBackEnabled 决定用 AOSP 动画还是 Oplus 动画。
+     * 开关开启时：不置真 mIsOplusAnimRes，并让预测返回开关判定为 false → 走 AOSP 分支。
+     */
+        @Suppress("unused")
     private fun installAospTransitionHook(cl: ClassLoader) {
         try {
             val cls = cl.loadClass(CLS_ADAPTIVE_SMOOTH_SHELL_ANIM)
@@ -3105,13 +3007,13 @@ class CoSSplashModule : XposedModule() {
                         // 回落平台的资源动画（AOSP 左右推入＋淡入淡出）。
                         // 注：只钩这一个方法 —— 旋转动画由 ScreenRotationAnimation 等
                         // 另一个链路实现，不受影响。
-                        log(
+                        cseLog(
                             Log.INFO, TAG,
                             "event=aosp_transition_call enabled=$AOSP_TRANSITION"
                         )
                         if (AOSP_TRANSITION) null else chain.proceed()
                     }            }
-            log(
+            cseLog(
                 Log.INFO, TAG,
                 "event=install_hook result=ok id=aosp_transition " +
                     "target=${cls.name}#hookTransitionAnimation count=${methods.size} gate=live"

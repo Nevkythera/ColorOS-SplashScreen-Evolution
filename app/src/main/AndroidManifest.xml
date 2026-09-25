@@ -95,6 +95,23 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.CSE" />
 
+        <!--
+            只读 ContentProvider：把用户选中的启动遮罩背景图片开放给 SystemUI 进程的 Hook。
+            Hook 与 App 不同进程/不同 uid，无法直接读 App 私有文件，故必须 exported。
+            仅暴露 filesDir 下的单个图片文件，不提供写操作。
+        -->
+        <provider
+            android:name=".data.SplashImageProvider"
+            android:authorities="${applicationId}.splashimage"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+
+        <!-- 图片裁切页：相册选图后进入，确认结果写回私有目录。 -->
+        <activity
+            android:name=".ImageCropActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CSE" />
+
         <!-- ===== LSPosed / libxposed API 102 模块声明 ===== -->
         <meta-data
             android:name="xposedmodule"

@@ -42,7 +42,8 @@ fun OptionWidget(
     description: String? = null,
     enabled: Boolean = true,
     isError: Boolean = false,
-    tintIcon: Boolean = true
+    tintIcon: Boolean = true,
+    showArrow: Boolean = true
 ) {
     // 置灰时整体降低透明度，与 SwitchWidget 的禁用视觉一致
     val contentAlpha = if (enabled) 1f else 0.38f
@@ -86,11 +87,13 @@ fun OptionWidget(
             }
         }
 
-        Icon(
-            painter = painterResource(id = R.drawable.arrow_forward_ios),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
-            modifier = Modifier.size(12.dp)
-        )
+        if (showArrow) {
+            Icon(
+                painter = painterResource(id = R.drawable.arrow_forward_ios),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                modifier = Modifier.size(12.dp)
+            )
+        }
     }
 }

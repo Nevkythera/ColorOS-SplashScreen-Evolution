@@ -24,7 +24,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.Nevkythera.ColorOSSplashScreenEvolution.R
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.theme.baseHazeStyle
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.AppTopBar
-import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.RestartDialog
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.RestartOverlay
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.SystemUiRestarter
 import android.widget.Toast
@@ -81,57 +80,57 @@ fun BasePanelPage(
             restartBusy = false
         }
     }
-    // 重启菜单：页面内浮层（渲染在下面带 hazeSource 的 Box 内，才能模糊页面内容）
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            AppTopBar(
-                modifier = Modifier.hazeEffect(
-                    state = hazeState,
-                    style = baseHazeStyle()
-                ) {
-                    progressive = HazeProgressive.verticalGradient(
-                        startIntensity = 1f,
-                        endIntensity = 0f
-                    )
-                },
-                title = {
-                    Text(
-                        text = title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                scrollBehavior = scrollBehavior,
-                isBackAvailable = true,
-                onBackClick = onBackClick,
-                isRestartAvailable = true,
-                onRestartClick = { showRestartDialog = true }
-            )
-        }
-    ) { paddingValues ->
-        //   hazeEffect 没有内容可模糊，表现为"顶栏完全没有模糊"）。
-        //   同时**去掉 top padding**：让内容延伸到顶栏下方（各页面内部用
-        //   TOP_BAR_SPACER 占位），滚动时内容穿过顶栏，模糊才看得见。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(state = hazeState)
-                .windowInsetsPadding(WindowInsets.statusBars)
-        ) {
-            content(
-                PaddingValues(bottom = paddingValues.calculateBottomPadding()),
-                scrollBehavior,
-                hazeState
-            )
-            if (showRestartDialog) {
-                RestartOverlay(
-                    hazeState = hazeState,
-                    onDismiss = { showRestartDialog = false },
-                    onRestartSystemUi = onRestartClick,
-                    onRebootSystem = { rebootSystem() }
+    // 重启菜单：全屏浮层必须画在 Scaffold（含顶栏）之上，遮罩才能盖满整屏。
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                AppTopBar(
+                    modifier = Modifier.hazeEffect(
+                        state = hazeState,
+                        style = baseHazeStyle()
+                    ) {
+                        progressive = HazeProgressive.verticalGradient(
+                            startIntensity = 1f,
+                            endIntensity = 0f
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    scrollBehavior = scrollBehavior,
+                    isBackAvailable = true,
+                    onBackClick = onBackClick,
+                    isRestartAvailable = true,
+                    onRestartClick = { showRestartDialog = true }
+                )
+            }
+        ) { paddingValues ->
+            //   hazeEffect 没有内容可模糊，表现为"顶栏完全没有模糊"）。
+            //   同时**去掉 top padding**：让内容延伸到顶栏下方（各页面内部用
+            //   TOP_BAR_SPACER 占位），滚动时内容穿过顶栏，模糊才看得见。
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(state = hazeState)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+            ) {
+                content(
+                    PaddingValues(bottom = paddingValues.calculateBottomPadding()),
+                    scrollBehavior,
+                    hazeState
                 )
             }
         }
+        RestartOverlay(
+            visible = showRestartDialog,
+            onDismiss = { showRestartDialog = false },
+            onRestartSystemUi = onRestartClick,
+            onRebootSystem = { rebootSystem() }
+        )
     }
 }

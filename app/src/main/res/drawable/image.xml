@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「图片」图标 —— Material Symbols 的 image（filled）。
+
+  用于「自定义背景图片」开关与「选择图片」入口。
+
+  ★ 来源：google/material-design-icons 仓库
+    symbols/web/image/materialsymbolsoutlined/image_fill1_24px.svg
+  ★ 坐标映射：官方 viewBox 为 `0 -960 960 960`，
+    用 <group android:translateY="960"> 整体下移 960 映射到 Android 的 `0 0 960 960`。
+  ★ 规格与其它图标一致：960 viewport / 满格填充 / 白色靠 tint 染色。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm40-80h480L570-480 450-320l-90-120-120 160Zm300-260q21 0 35.5-14.5T590-590q0-21-14.5-35.5T540-640q-21 0-35.5 14.5T490-590q0 21 14.5 35.5T540-540Z" />
+    </group>
+</vector>

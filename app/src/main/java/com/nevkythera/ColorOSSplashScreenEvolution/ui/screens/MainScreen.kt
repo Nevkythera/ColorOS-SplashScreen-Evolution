@@ -6,8 +6,10 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -61,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import com.Nevkythera.ColorOSSplashScreenEvolution.PanelActivity
 import com.Nevkythera.ColorOSSplashScreenEvolution.ExtraFeaturesActivity
@@ -73,12 +77,13 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.ui.theme.baseHazeStyle
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.AppTopBar
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.CapsuleShapes
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.OptionWidget
-import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.RestartDialog
+import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.RestartOverlay
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.StableEntry
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.entry
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SwitchWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.ChoiceWidget
+import com.Nevkythera.ColorOSSplashScreenEvolution.util.GallerySaver
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.LauncherIconController
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.LocaleManager
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.RootManagerDetector
@@ -223,15 +228,6 @@ fun MainScreen() {
         }
     }
 
-    // 重启选项框（与二级页共用 RestartDialog）
-    if (showRestartMenu) {
-        RestartDialog(
-            onDismiss = { showRestartMenu = false },
-            onRestartSystemUi = { restartSystemUi() },
-            onRebootSystem = { restartDevice() }
-        )
-    }
-
     //   二级页（图标/背景/杂项）改为**独立 Activity**（PanelActivity），
     //   转场交给系统原生的 Activity 动画。
     //   这里只保留一层背景色容器 + Scaffold，结构比之前的 NavHost 简单一层。
@@ -329,6 +325,13 @@ fun MainScreen() {
                     }
                 }
             }
+
+        RestartOverlay(
+            visible = showRestartMenu,
+            onDismiss = { showRestartMenu = false },
+            onRestartSystemUi = { restartSystemUi() },
+            onRebootSystem = { restartDevice() }
+        )
     }
 }
 
@@ -385,6 +388,7 @@ private fun HomePage(
                         iconRes = R.drawable.android,
                         title = stringResource(R.string.android_version),
                         description = androidVersion,
+                        showArrow = false,
                         onClick = {}
                     )
                 }
@@ -393,6 +397,7 @@ private fun HomePage(
                         iconRes = R.drawable.aod_tablet,
                         title = stringResource(R.string.device_model),
                         description = deviceModel,
+                        showArrow = false,
                         onClick = {}
                     )
                 }
@@ -407,6 +412,7 @@ private fun HomePage(
                         },
                         isError = !rootLoading && rootInfo.nameRes == R.string.root_not_detected &&
                             rootInfo.nameLiteral == null,
+                        showArrow = false,
                         onClick = {}
                     )
                 }
@@ -419,6 +425,7 @@ private fun HomePage(
                         } else {
                             rootInfo.versionLiteral ?: stringResource(rootInfo.versionRes)
                         },
+                        showArrow = false,
                         onClick = {}
                     )
                 }
@@ -682,6 +689,7 @@ private fun SettingPage(
 @Composable
 private fun AboutPage(modifier: Modifier) {
     val context = LocalContext.current
+    var showDonate by remember { mutableStateOf(false) }
 
     //   格式：「0.3 · ID 33」—— versionName · versionCode。
     //   加版本 ID 的原因：用户/维护者自查问题时，光看 0.3 无法区分是第几次
@@ -745,6 +753,14 @@ private fun AboutPage(modifier: Modifier) {
                         onClick = { openCoolapk(context, COOLAPK_URL) }
                     )
                 }
+                entry("donate") {
+                    OptionWidget(
+                        iconRes = R.drawable.favorite,
+                        title = stringResource(R.string.donate),
+                        description = stringResource(R.string.donate_desc),
+                        onClick = { showDonate = true }
+                    )
+                }
             }
         )
 
@@ -804,6 +820,61 @@ private fun AboutPage(modifier: Modifier) {
                 }
             }
         )
+
+        if (showDonate) {
+            DonateDialog(onDismiss = { showDonate = false })
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DonateDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.donate_thanks),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Image(
+                    painter = painterResource(R.drawable.donation_qr),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                val ok = GallerySaver.savePngResource(
+                                    context, R.drawable.donation_qr, "CSE_donation_qr"
+                                )
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (ok) R.string.donate_saved else R.string.donate_save_failed
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                )
+                Text(
+                    text = stringResource(R.string.donate_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

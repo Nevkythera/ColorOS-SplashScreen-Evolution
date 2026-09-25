@@ -154,6 +154,23 @@
     <string name="aosp_transition_desc">将activity转场动画回退至AOSP</string>
     <string name="detailed_log">详细日志</string>
     <string name="detailed_log_desc">输出模块运行细节到 logcat，便于排查问题；关闭后仅保留警告与错误</string>
+    <string name="splash_image">自定义背景图片</string>
+    <string name="splash_image_desc">用PNG图片、GIF图片或MP4视频作为遮罩背景</string>
+    <string name="splash_image_pick">选择图片</string>
+    <string name="splash_image_alpha">图片不透明度</string>
+    <string name="splash_image_none">未选择</string>
+    <string name="splash_image_kind_png">PNG图片</string>
+    <string name="splash_image_kind_gif">GIF图片</string>
+    <string name="splash_image_kind_video">MP4视频</string>
+    <string name="splash_image_save_failed">图片保存失败</string>
+    <string name="crop_rotate">旋转</string>
+
+    <string name="donate">赞助</string>
+    <string name="donate_desc">支持模块开发！</string>
+    <string name="donate_thanks">谢谢你的支持呀</string>
+    <string name="donate_hint">长按图片保存到相册</string>
+    <string name="donate_saved">已保存到相册</string>
+    <string name="donate_save_failed">保存失败</string>
 
     <!-- 鸣谢 -->
     <string name="credits_title">鸣谢</string>

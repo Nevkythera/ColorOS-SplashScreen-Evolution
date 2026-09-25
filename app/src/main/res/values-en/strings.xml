@@ -161,6 +161,23 @@
     <string name="aosp_transition_desc">Restore activity transitions to AOSP</string>
     <string name="detailed_log">Detailed logging</string>
     <string name="detailed_log_desc">Write module runtime details to logcat for troubleshooting; when off only warnings and errors are kept</string>
+    <string name="splash_image">Custom background image</string>
+    <string name="splash_image_desc">Use a PNG image, GIF or MP4 video as the splash background</string>
+    <string name="splash_image_pick">Pick image</string>
+    <string name="splash_image_alpha">Image opacity</string>
+    <string name="splash_image_none">Not selected</string>
+    <string name="splash_image_kind_png">PNG image</string>
+    <string name="splash_image_kind_gif">GIF image</string>
+    <string name="splash_image_kind_video">MP4 video</string>
+    <string name="splash_image_save_failed">Failed to save the image</string>
+    <string name="crop_rotate">Rotate</string>
+
+    <string name="donate">Donate</string>
+    <string name="donate_desc">Support the development!</string>
+    <string name="donate_thanks">Thank you for your support!</string>
+    <string name="donate_hint">Long-press the image to save to gallery</string>
+    <string name="donate_saved">Saved to gallery</string>
+    <string name="donate_save_failed">Failed to save</string>
 
     <!-- Credits -->
     <string name="credits_title">Credits</string>

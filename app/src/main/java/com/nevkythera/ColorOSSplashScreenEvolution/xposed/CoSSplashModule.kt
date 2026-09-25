@@ -2,12 +2,17 @@ package com.Nevkythera.ColorOSSplashScreenEvolution.xposed
 
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.Outline
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.graphics.SurfaceTexture
 import android.graphics.drawable.Drawable
+import android.media.MediaPlayer
 import android.util.Log
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
@@ -19,12 +24,15 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.palette.graphics.Palette
 import androidx.compose.ui.graphics.toArgb
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.GraphicUtils
+import com.Nevkythera.ColorOSSplashScreenEvolution.util.SplashImageStore
+import com.Nevkythera.ColorOSSplashScreenEvolution.util.SplashMedia
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Executable
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.nio.ByteBuffer
 
 
 class CoSSplashModule : XposedModule() {
@@ -163,6 +171,22 @@ class CoSSplashModule : XposedModule() {
         @Volatile
         var REMOVE_ICON = false
 
+        /** 自定义背景图片：是否启用。 */
+        @Volatile
+        var SPLASH_IMAGE_ENABLED = false
+
+        /** 自定义背景图片：不透明度（0~100）。 */
+        @Volatile
+        var SPLASH_IMAGE_ALPHA = 100
+
+        /** 背景媒体类型（image / gif / video）。 */
+        @Volatile
+        var SPLASH_MEDIA_KIND = SplashMedia.KIND_IMAGE
+
+        /** 背景媒体的归一化裁切变换（GIF/视频用）。 */
+        @Volatile
+        var SPLASH_MEDIA_TRANSFORM = ""
+
         
         @Volatile
         var ENABLE_HOT_START_SPLASH = false
@@ -209,6 +233,12 @@ class CoSSplashModule : XposedModule() {
         /** 详细日志开关（默认开）。 */
         const val KEY_DETAILED_LOG = "detailed_log"
 
+        /** 自定义背景图片：是否启用。 */
+        const val KEY_SPLASH_IMAGE_ENABLED = "splash_image_enabled"
+
+        /** 自定义背景图片：不透明度（0~100）。 */
+        const val KEY_SPLASH_IMAGE_ALPHA = "splash_image_alpha"
+
         /** 关掉后只保留 WARN/ERROR。 */
         @Volatile
         var DETAILED_LOG = true
@@ -222,6 +252,18 @@ class CoSSplashModule : XposedModule() {
 
         /** 装饰层标识：MD3E 几何形变。 */
         const val TAG_MORPH_SHAPE = "cse_morph_shape"
+
+        /** 装饰层标识：自定义背景图片。 */
+        const val TAG_SPLASH_IMAGE = "cse_splash_image"
+
+        /** 远程共享目录里的图片文件名（需与 App 侧 SplashImageStore.FILE_NAME 一致）。 */
+        const val SPLASH_IMAGE_FILE = SplashImageStore.FILE_NAME
+
+        /** 背景媒体类型：image / gif / video。 */
+        const val KEY_SPLASH_MEDIA_KIND = "splash_media_kind"
+
+        /** 背景媒体的归一化裁切变换。 */
+        const val KEY_SPLASH_MEDIA_TRANSFORM = "splash_media_transform"
 
         /** 指示器取色方式。 */
         const val MORPH_COLOR_FROM_MONET = 0
@@ -430,6 +472,11 @@ class CoSSplashModule : XposedModule() {
                 .coerceIn(EXIT_DURATION_MIN, EXIT_DURATION_MAX)
             AOSP_TRANSITION = prefs.getBoolean(KEY_AOSP_TRANSITION, false)
             DETAILED_LOG = prefs.getBoolean(KEY_DETAILED_LOG, true)
+            SPLASH_IMAGE_ENABLED = prefs.getBoolean(KEY_SPLASH_IMAGE_ENABLED, false)
+            SPLASH_IMAGE_ALPHA = prefs.getInt(KEY_SPLASH_IMAGE_ALPHA, 100).coerceIn(0, 100)
+            SPLASH_MEDIA_KIND = prefs.getString(KEY_SPLASH_MEDIA_KIND, SplashMedia.KIND_IMAGE)
+                ?: SplashMedia.KIND_IMAGE
+            SPLASH_MEDIA_TRANSFORM = prefs.getString(KEY_SPLASH_MEDIA_TRANSFORM, "") ?: ""
             if (logResult) {
                 cseLog(
                     Log.INFO, TAG,
@@ -1959,6 +2006,10 @@ class CoSSplashModule : XposedModule() {
             return
         }
 
+        if (SPLASH_IMAGE_ENABLED) {
+            addSplashBackgroundImage(view, source)
+        }
+
         if (REMOVE_ICON) {
             val hidden = hideAllIconViews(view)
             cseLog(
@@ -2025,6 +2076,159 @@ class CoSSplashModule : XposedModule() {
             c = c.superclass
         }
         return false
+    }
+
+    /**
+     * 自定义启动遮罩背景媒体（图片 / GIF / 视频）。
+     *
+     * 由 App 存在私有目录，通过 SplashImageProvider 暴露，这里用 contentResolver 读取。
+     * 关键：SplashScreenView **自身不绘制 background**（可见底色来自窗口），所以必须作为
+     * **子 View** 插入。层级：图标(0) > MD3E 指示器(-1) > 媒体(-2) > 窗口底色。
+     *  - 图片：已由 App 烘成裁切后的 PNG，直接 centerCrop；
+     *  - GIF：原始 GIF + 归一化变换（ImageView MATRIX）→ 循环播放；
+     *  - 视频：原始 MP4 + 归一化变换（TextureView + MediaPlayer）→ 静音循环播放。
+     */
+    private fun addSplashBackgroundImage(view: FrameLayout, source: String) {
+        if (findTagView(view, TAG_SPLASH_IMAGE) != null) return
+        val kind = SPLASH_MEDIA_KIND
+        val transform = SplashMedia.Transform.decode(SPLASH_MEDIA_TRANSFORM)
+        runCatching {
+            val pkg = getModuleApplicationInfo().packageName
+            val uri = SplashImageStore.contentUri(pkg)
+            if (kind == SplashMedia.KIND_VIDEO) {
+                addSplashVideo(view, uri, transform, source)
+                return
+            }
+            val drawable = view.context.contentResolver.openInputStream(uri)?.use { input ->
+                ImageDecoder.decodeDrawable(
+                    ImageDecoder.createSource(ByteBuffer.wrap(input.readBytes()))
+                ) { decoder, _, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            } ?: throw java.io.FileNotFoundException(uri.toString())
+            val useMatrix = kind == SplashMedia.KIND_GIF && transform != null
+            val imageView = ImageView(view.context).apply {
+                tag = TAG_SPLASH_IMAGE
+                z = -2f
+                alpha = SPLASH_IMAGE_ALPHA.coerceIn(0, 100) / 100f
+                scaleType = if (useMatrix) ImageView.ScaleType.MATRIX
+                else ImageView.ScaleType.CENTER_CROP
+                setImageDrawable(drawable)
+            }
+            view.addView(
+                imageView,
+                0,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+            (drawable as? android.graphics.drawable.AnimatedImageDrawable)?.apply {
+                repeatCount = android.graphics.drawable.AnimatedImageDrawable.REPEAT_INFINITE
+                start()
+            }
+            if (useMatrix) {
+                view.post {
+                    imageView.imageMatrix = SplashMedia.matrix(transform, view.width, view.height)
+                }
+            }
+            cseLog(
+                Log.INFO, TAG,
+                "event=hook_hit id=add_splash_image source=$source kind=$kind " +
+                    "drawable=${drawable.javaClass.simpleName} alpha=$SPLASH_IMAGE_ALPHA"
+            )
+        }.onFailure {
+            log(Log.WARN, TAG, "event=hook_error id=add_splash_image source=$source", it)
+        }
+    }
+
+    /** 视频背景：TextureView + MediaPlayer，静音循环，按归一化变换摆放。 */
+    private fun addSplashVideo(
+        view: FrameLayout,
+        uri: android.net.Uri,
+        transform: SplashMedia.Transform?,
+        source: String
+    ) {
+        val ctx = view.context
+        val textureView = TextureView(ctx).apply {
+            tag = TAG_SPLASH_IMAGE
+            z = -2f
+            alpha = SPLASH_IMAGE_ALPHA.coerceIn(0, 100) / 100f
+        }
+        view.addView(
+            textureView,
+            0,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            private var player: MediaPlayer? = null
+
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
+                runCatching {
+                    player = MediaPlayer().apply {
+                        setDataSource(ctx, uri)
+                        setSurface(Surface(surface))
+                        isLooping = true
+                        setVolume(0f, 0f)
+                        setOnPreparedListener { mp ->
+                            // 用播放器实际输出的分辨率重算矩阵（避免旋转元数据不一致导致拉伸）。
+                            applyVideoTransform(
+                                textureView, transform, mp.videoWidth, mp.videoHeight,
+                                view.width, view.height
+                            )
+                            mp.start()
+                        }
+                        prepareAsync()
+                    }
+                }.onFailure {
+                    log(Log.WARN, TAG, "event=video_error id=splash_video reason=prepare", it)
+                }
+            }
+
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) = Unit
+
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                runCatching { player?.release() }
+                player = null
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+        }
+        cseLog(
+            Log.INFO, TAG,
+            "event=hook_hit id=add_splash_video source=$source transform=$transform"
+        )
+    }
+
+    /**
+     * 视频变换：TextureView 默认把视频像素 1:1 映射到视图坐标，因此直接用与
+     * 图片相同的 [SplashMedia.matrix]（源像素 → 视图坐标）即可，裁剪/缩放/旋转一致。
+     */
+    private fun applyVideoTransform(
+        textureView: TextureView,
+        t: SplashMedia.Transform?,
+        videoW: Int,
+        videoH: Int,
+        viewW: Int,
+        viewH: Int
+    ) {
+        if (t == null || videoW <= 0 || videoH <= 0) return
+        if (viewW <= 0 || viewH <= 0) {
+            textureView.post {
+                applyVideoTransform(
+                    textureView, t, videoW, videoH,
+                    textureView.width, textureView.height
+                )
+            }
+            return
+        }
+        textureView.setTransform(
+            SplashMedia.matrix(t.copy(iw = videoW, ih = videoH), viewW, viewH)
+        )
     }
 
     
@@ -3007,10 +3211,6 @@ class CoSSplashModule : XposedModule() {
                         // 回落平台的资源动画（AOSP 左右推入＋淡入淡出）。
                         // 注：只钩这一个方法 —— 旋转动画由 ScreenRotationAnimation 等
                         // 另一个链路实现，不受影响。
-                        cseLog(
-                            Log.INFO, TAG,
-                            "event=aosp_transition_call enabled=$AOSP_TRANSITION"
-                        )
                         if (AOSP_TRANSITION) null else chain.proceed()
                     }            }
             cseLog(

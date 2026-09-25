@@ -40,6 +40,17 @@ data class CseConfig(
     /** 详细日志（写入 logcat，供排查；默认开启）。 */
     val detailedLog: Boolean = true,
 
+    /** 自定义启动遮罩背景图片（内容 URI；空 = 未选）。 */
+    val splashImageUri: String = "",
+    /** 是否启用背景图片（开启后才有渲染）。 */
+    val splashImageEnabled: Boolean = false,
+    /** 图片不透明度（0~100，默认 100）。 */
+    val splashImageAlpha: Int = 100,
+    /** 背景媒体类型：image / gif / video。 */
+    val splashMediaKind: String = "image",
+    /** 背景媒体的归一化裁切变换（GIF/视频用；空 = 居中铺满）。 */
+    val splashMediaTransform: String = "",
+
     /** 单个粒子自身的运动时长（毫秒，100~2000，默认 600）。 */
     val particleTimeMs: Int = PARTICLE_TIME_DEFAULT,
     /**
@@ -129,6 +140,11 @@ data class CseConfig(
         const val KEY_PARTICLE_TIME_MS = "exit_particle_time_ms"
         const val KEY_AOSP_TRANSITION = "aosp_transition"
         const val KEY_DETAILED_LOG = "detailed_log"
+        const val KEY_SPLASH_IMAGE_URI = "splash_image_uri"
+        const val KEY_SPLASH_IMAGE_ENABLED = "splash_image_enabled"
+        const val KEY_SPLASH_IMAGE_ALPHA = "splash_image_alpha"
+        const val KEY_SPLASH_MEDIA_KIND = "splash_media_kind"
+        const val KEY_SPLASH_MEDIA_TRANSFORM = "splash_media_transform"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
@@ -167,6 +183,11 @@ class ConfigStore(context: Context) {
         replaceIcon = repo.getBoolean(CseConfig.KEY_REPLACE_ICON, false),
         aospTransition = repo.getBoolean(CseConfig.KEY_AOSP_TRANSITION, false),
         detailedLog = repo.getBoolean(CseConfig.KEY_DETAILED_LOG, true),
+        splashImageUri = repo.getString(CseConfig.KEY_SPLASH_IMAGE_URI, "") ?: "",
+        splashImageEnabled = repo.getBoolean(CseConfig.KEY_SPLASH_IMAGE_ENABLED, false),
+        splashImageAlpha = repo.getInt(CseConfig.KEY_SPLASH_IMAGE_ALPHA, 100).coerceIn(0, 100),
+        splashMediaKind = repo.getString(CseConfig.KEY_SPLASH_MEDIA_KIND, "image") ?: "image",
+        splashMediaTransform = repo.getString(CseConfig.KEY_SPLASH_MEDIA_TRANSFORM, "") ?: "",
         particleTimeMs = CseConfig.normalizeParticleTime(
             repo.getInt(CseConfig.KEY_PARTICLE_TIME_MS, CseConfig.PARTICLE_TIME_DEFAULT)
         ),
@@ -195,6 +216,19 @@ class ConfigStore(context: Context) {
         update(CseConfig.KEY_SHRINK_ICON, CseConfig.normalizeShrinkIcon(value))
     fun setReplaceIcon(value: Boolean) = update(CseConfig.KEY_REPLACE_ICON, value)
     fun setDetailedLog(value: Boolean) = update(CseConfig.KEY_DETAILED_LOG, value)
+
+    fun setSplashImageUri(value: String) = update(CseConfig.KEY_SPLASH_IMAGE_URI, value)
+
+    fun setSplashImageEnabled(value: Boolean) =
+        update(CseConfig.KEY_SPLASH_IMAGE_ENABLED, value)
+
+    fun setSplashImageAlpha(value: Int) =
+        update(CseConfig.KEY_SPLASH_IMAGE_ALPHA, value.coerceIn(0, 100))
+
+    fun setSplashMediaKind(value: String) = update(CseConfig.KEY_SPLASH_MEDIA_KIND, value)
+
+    fun setSplashMediaTransform(value: String) =
+        update(CseConfig.KEY_SPLASH_MEDIA_TRANSFORM, value)
 
     fun setAospTransition(value: Boolean) = update(CseConfig.KEY_AOSP_TRANSITION, value)
 

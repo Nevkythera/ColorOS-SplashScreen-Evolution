@@ -187,6 +187,10 @@ class CoSSplashModule : XposedModule() {
         @Volatile
         var SPLASH_MEDIA_TRANSFORM = ""
 
+        /** 背景媒体版本号（换图时更新）。 */
+        @Volatile
+        var SPLASH_MEDIA_VERSION = 0L
+
         
         @Volatile
         var ENABLE_HOT_START_SPLASH = false
@@ -264,6 +268,13 @@ class CoSSplashModule : XposedModule() {
 
         /** 背景媒体的归一化裁切变换。 */
         const val KEY_SPLASH_MEDIA_TRANSFORM = "splash_media_transform"
+
+        /** 背景媒体版本号（换图时更新）。 */
+        const val KEY_SPLASH_MEDIA_VERSION = "splash_media_version"
+
+        /** SystemUI 侧媒体缓存文件名与版本记录。 */
+        const val MEDIA_CACHE_FILE = "cse_splash_media"
+        const val MEDIA_CACHE_VERSION_FILE = "cse_splash_media.ver"
 
         /** 指示器取色方式。 */
         const val MORPH_COLOR_FROM_MONET = 0
@@ -477,6 +488,7 @@ class CoSSplashModule : XposedModule() {
             SPLASH_MEDIA_KIND = prefs.getString(KEY_SPLASH_MEDIA_KIND, SplashMedia.KIND_IMAGE)
                 ?: SplashMedia.KIND_IMAGE
             SPLASH_MEDIA_TRANSFORM = prefs.getString(KEY_SPLASH_MEDIA_TRANSFORM, "") ?: ""
+            SPLASH_MEDIA_VERSION = prefs.getLong(KEY_SPLASH_MEDIA_VERSION, 0L)
             if (logResult) {
                 cseLog(
                     Log.INFO, TAG,
@@ -2093,19 +2105,31 @@ class CoSSplashModule : XposedModule() {
         val kind = SPLASH_MEDIA_KIND
         val transform = SplashMedia.Transform.decode(SPLASH_MEDIA_TRANSFORM)
         runCatching {
-            val pkg = getModuleApplicationInfo().packageName
-            val uri = SplashImageStore.contentUri(pkg)
+            // 注意：view.context 是**被启动应用**的 Context（启动遮罩视图由目标应用 Context 创建），
+            // 其 filesDir 指向该应用私有目录，SystemUI 无法写入。缓存必须用**本进程（SystemUI）**
+            // 自己的 Application Context。
+            val ctx = hostAppContext() ?: view.context
             if (kind == SplashMedia.KIND_VIDEO) {
-                addSplashVideo(view, uri, transform, source)
+                val file = obtainVideoFile(ctx)
+                    ?: throw java.io.FileNotFoundException("media_unavailable")
+                addSplashVideo(view, file, transform, source)
                 return
             }
-            val drawable = view.context.contentResolver.openInputStream(uri)?.use { input ->
-                ImageDecoder.decodeDrawable(
-                    ImageDecoder.createSource(ByteBuffer.wrap(input.readBytes()))
-                ) { decoder, _, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            // 先试 SystemUI 缓存（不依赖 App 进程），失败/未命中再回 App 的 Provider。
+            var resolved = cachedMediaBytes(ctx)?.let { b ->
+                runCatching { decodeSplashDrawable(b) }.getOrNull()?.also {
+                    cseLog(Log.INFO, TAG, "event=media_source result=cache")
                 }
-            } ?: throw java.io.FileNotFoundException(uri.toString())
+            }
+            if (resolved == null) {
+                providerMediaBytes(ctx)?.let { fromApp ->
+                    refreshMediaCache(ctx, fromApp)
+                    resolved = runCatching { decodeSplashDrawable(fromApp) }.getOrNull()?.also {
+                        cseLog(Log.INFO, TAG, "event=media_source result=provider")
+                    }
+                }
+            }
+            val drawable = resolved ?: throw java.io.FileNotFoundException("media_unavailable")
             val useMatrix = kind == SplashMedia.KIND_GIF && transform != null
             val imageView = ImageView(view.context).apply {
                 tag = TAG_SPLASH_IMAGE
@@ -2142,10 +2166,70 @@ class CoSSplashModule : XposedModule() {
         }
     }
 
+    private fun mediaCacheFile(ctx: android.content.Context): java.io.File =
+        java.io.File(ctx.filesDir, MEDIA_CACHE_FILE)
+
+    private fun mediaCacheVersionFile(ctx: android.content.Context): java.io.File =
+        java.io.File(ctx.filesDir, MEDIA_CACHE_VERSION_FILE)
+
+    /** 读 SystemUI 本地缓存（仅当旁路版本文件与当前版本一致时）。失败返回 null，绝不影响显示。 */
+    private fun cachedMediaBytes(ctx: android.content.Context): ByteArray? = runCatching {
+        val f = mediaCacheFile(ctx)
+        val vf = mediaCacheVersionFile(ctx)
+        if (!f.exists() || !vf.exists()) return@runCatching null
+        val ver = vf.readText().trim().toLongOrNull() ?: return@runCatching null
+        if (ver != SPLASH_MEDIA_VERSION) return@runCatching null
+        f.readBytes()
+    }.getOrNull()
+
+    /** 同上，但返回缓存文件本身（视频需路径）。 */
+    private fun cachedMediaFile(ctx: android.content.Context): java.io.File? = runCatching {
+        val f = mediaCacheFile(ctx)
+        val vf = mediaCacheVersionFile(ctx)
+        if (!f.exists() || !vf.exists()) return@runCatching null
+        val ver = vf.readText().trim().toLongOrNull() ?: return@runCatching null
+        if (ver != SPLASH_MEDIA_VERSION) return@runCatching null
+        f
+    }.getOrNull()
+
+    /** 从模块 App 的 ContentProvider 读原始字节（App 被杀 / 未启动时为 null）。 */
+    private fun providerMediaBytes(ctx: android.content.Context): ByteArray? = runCatching {
+        val pkg = getModuleApplicationInfo().packageName
+        ctx.contentResolver.openInputStream(SplashImageStore.contentUri(pkg))?.use { it.readBytes() }
+    }.getOrNull()
+
+    /** 把字节写进 SystemUI 缓存（尽力而为，失败不影响显示）。 */
+    private fun refreshMediaCache(ctx: android.content.Context, bytes: ByteArray) {
+        runCatching {
+            mediaCacheFile(ctx).writeBytes(bytes)
+            mediaCacheVersionFile(ctx).writeText(SPLASH_MEDIA_VERSION.toString())
+            cseLog(
+                Log.INFO, TAG,
+                "event=media_cache result=ok size=${bytes.size} ver=$SPLASH_MEDIA_VERSION dir=${ctx.filesDir}"
+            )
+        }.onFailure {
+            log(Log.WARN, TAG, "event=media_cache result=fail", it)
+        }
+    }
+
+    /** 解码图片/GIF（软件位图，兼容 GIF）。 */
+    private fun decodeSplashDrawable(bytes: ByteArray): Drawable =
+        ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, _, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+
+    /** 取视频文件：缓存命中直接用，否则从 App 拉一份落到缓存；全程防御，失败返回 null。 */
+    private fun obtainVideoFile(ctx: android.content.Context): java.io.File? =
+        cachedMediaFile(ctx) ?: run {
+            val bytes = providerMediaBytes(ctx) ?: return null
+            refreshMediaCache(ctx, bytes)
+            cachedMediaFile(ctx)
+        }
+
     /** 视频背景：TextureView + MediaPlayer，静音循环，按归一化变换摆放。 */
     private fun addSplashVideo(
         view: FrameLayout,
-        uri: android.net.Uri,
+        file: java.io.File,
         transform: SplashMedia.Transform?,
         source: String
     ) {
@@ -2169,7 +2253,7 @@ class CoSSplashModule : XposedModule() {
             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) {
                 runCatching {
                     player = MediaPlayer().apply {
-                        setDataSource(ctx, uri)
+                        setDataSource(file.absolutePath)
                         setSurface(Surface(surface))
                         isLooping = true
                         setVolume(0f, 0f)

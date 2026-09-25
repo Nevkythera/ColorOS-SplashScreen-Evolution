@@ -125,15 +125,18 @@ private fun BackgroundPageContent(
             val kind = data?.getStringExtra(ImageCropActivity.EXTRA_RESULT_KIND)
                 ?: SplashMedia.KIND_IMAGE
             val transform = data?.getStringExtra(ImageCropActivity.EXTRA_RESULT_TRANSFORM).orEmpty()
+            val version = System.currentTimeMillis()
             store.setSplashImageUri(src)
             store.setSplashMediaKind(kind)
             store.setSplashMediaTransform(transform)
+            store.setSplashMediaVersion(version)
             store.setSplashImageEnabled(true)
             onConfigChange(
                 config.copy(
                     splashImageUri = src,
                     splashMediaKind = kind,
                     splashMediaTransform = transform,
+                    splashMediaVersion = version,
                     splashImageEnabled = true
                 )
             )

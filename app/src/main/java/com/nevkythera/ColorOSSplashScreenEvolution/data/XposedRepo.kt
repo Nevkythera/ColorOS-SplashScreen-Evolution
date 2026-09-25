@@ -136,6 +136,9 @@ class XposedRepo private constructor(context: Context) {
     fun getInt(key: String, def: Int): Int =
         localPrefs.getInt(key, def)
 
+    fun getLong(key: String, def: Long): Long =
+        localPrefs.getLong(key, def)
+
     fun getString(key: String, def: String): String =
         localPrefs.getString(key, def) ?: def
 
@@ -154,6 +157,13 @@ class XposedRepo private constructor(context: Context) {
         localPrefs.edit { putInt(key, value) }
         if (syncRemote) {
             remotePrefs?.edit { putInt(key, value) }
+        }
+    }
+
+    fun setLong(key: String, value: Long, syncRemote: Boolean = true) {
+        localPrefs.edit { putLong(key, value) }
+        if (syncRemote) {
+            remotePrefs?.edit { putLong(key, value) }
         }
     }
 

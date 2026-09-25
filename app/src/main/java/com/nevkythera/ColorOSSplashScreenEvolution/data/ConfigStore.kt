@@ -50,6 +50,8 @@ data class CseConfig(
     val splashMediaKind: String = "image",
     /** 背景媒体的归一化裁切变换（GIF/视频用；空 = 居中铺满）。 */
     val splashMediaTransform: String = "",
+    /** 背景媒体版本号（换图/换视频时更新，供 SystemUI 侧判断缓存是否过期）。 */
+    val splashMediaVersion: Long = 0L,
 
     /** 单个粒子自身的运动时长（毫秒，100~2000，默认 600）。 */
     val particleTimeMs: Int = PARTICLE_TIME_DEFAULT,
@@ -145,6 +147,7 @@ data class CseConfig(
         const val KEY_SPLASH_IMAGE_ALPHA = "splash_image_alpha"
         const val KEY_SPLASH_MEDIA_KIND = "splash_media_kind"
         const val KEY_SPLASH_MEDIA_TRANSFORM = "splash_media_transform"
+        const val KEY_SPLASH_MEDIA_VERSION = "splash_media_version"
         const val KEY_ENABLE_MORPH_SHAPE = "enable_morph_shape"
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
@@ -188,6 +191,7 @@ class ConfigStore(context: Context) {
         splashImageAlpha = repo.getInt(CseConfig.KEY_SPLASH_IMAGE_ALPHA, 100).coerceIn(0, 100),
         splashMediaKind = repo.getString(CseConfig.KEY_SPLASH_MEDIA_KIND, "image") ?: "image",
         splashMediaTransform = repo.getString(CseConfig.KEY_SPLASH_MEDIA_TRANSFORM, "") ?: "",
+        splashMediaVersion = repo.getLong(CseConfig.KEY_SPLASH_MEDIA_VERSION, 0L),
         particleTimeMs = CseConfig.normalizeParticleTime(
             repo.getInt(CseConfig.KEY_PARTICLE_TIME_MS, CseConfig.PARTICLE_TIME_DEFAULT)
         ),
@@ -230,6 +234,8 @@ class ConfigStore(context: Context) {
     fun setSplashMediaTransform(value: String) =
         update(CseConfig.KEY_SPLASH_MEDIA_TRANSFORM, value)
 
+    fun setSplashMediaVersion(value: Long) = update(CseConfig.KEY_SPLASH_MEDIA_VERSION, value)
+
     fun setAospTransition(value: Boolean) = update(CseConfig.KEY_AOSP_TRANSITION, value)
 
     fun setParticleTimeMs(value: Int) =
@@ -268,6 +274,11 @@ class ConfigStore(context: Context) {
 
     private fun update(key: String, value: Int) {
         repo.setInt(key, value)
+        _state.value = read()
+    }
+
+    private fun update(key: String, value: Long) {
+        repo.setLong(key, value)
         _state.value = read()
     }
 

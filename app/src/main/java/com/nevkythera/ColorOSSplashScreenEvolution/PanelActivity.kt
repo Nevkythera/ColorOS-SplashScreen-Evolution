@@ -17,6 +17,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.data.ConfigStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.navgation.Destination
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.AnimationPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.BackgroundPage
+import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.BottomPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.IconPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.screens.MiscPage
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.theme.AppTheme
@@ -70,6 +71,15 @@ class PanelActivity : ComponentActivity() {
 
                 when (current) {
                     Destination.ICON -> IconPage(
+                        config = config,
+                        store = store,
+                        onConfigChange = { config = it },
+                        masterEnabled = config.masterSwitch,
+                        onBackClick = goBack,
+                        onRestartClick = restart
+                    )
+
+                    Destination.BOTTOM -> BottomPage(
                         config = config,
                         store = store,
                         onConfigChange = { config = it },

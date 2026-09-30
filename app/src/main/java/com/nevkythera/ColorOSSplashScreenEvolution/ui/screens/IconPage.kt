@@ -24,6 +24,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SliderWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SwitchWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.entry
+import kotlin.math.roundToInt
 
 /**
  * 图标页 —— 对应 RestoreSplashScreen 的 `IconPage`。
@@ -70,19 +71,10 @@ private fun IconPageContent(
     onConfigChange: (CseConfig) -> Unit,
     enabled: Boolean
 ) {
-    // ── 缩小图标：只有两态，且「选项索引」与「配置值」不是同一个数字 ──
-    //     配置值 `shrinkIcon` 是 CseConfig 的枚举值（0 = 不缩小 / 2 = 全部），
-    //     中间值 1（仅缩小低分辨率）已移除，所以值域是 {0, 2} 而非 {0, 1}。
-    //     下拉列表的 `index` 必须是连续的 0..n-1，两者不能混用。
-    //     删掉中间项后这个巧合不成立了 —— 若仍直接传索引，
-    //     选「缩小全部图标」会写进 1（无效值），Hook 层判定为"不缩小"。
-    val shrinkValues = listOf(
-        CseConfig.SHRINK_NONE,
-        CseConfig.SHRINK_ALL
-    )
-    val shrinkOptions = listOf(
-        stringResource(R.string.not_shrink_icon),
-        stringResource(R.string.shrink_all_icon)
+    val loadingAnimOptions = listOf(
+        stringResource(R.string.loading_anim_off),
+        stringResource(R.string.loading_anim_shape),
+        stringResource(R.string.loading_anim_bar)
     )
 
     Column(
@@ -113,19 +105,21 @@ private fun IconPageContent(
                         }
                     )
                 }
-                entry("shrink_icon") {
-                    ChoiceWidget(
+                entry("icon_scale") {
+                    SliderWidget(
                         iconRes = R.drawable.tile,
-                        title = stringResource(R.string.shrink_icon),
-                        description = stringResource(R.string.shrink_icon_desc),
-                        selectedIndex = shrinkValues.indexOf(config.shrinkIcon)
-                            .coerceAtLeast(0),
-                        options = shrinkOptions,
+                        title = stringResource(R.string.icon_size),
+                        description = stringResource(R.string.icon_size_desc),
+                        value = config.iconScale.toFloat(),
+                        valueRange = CseConfig.ICON_SCALE_MIN.toFloat()..
+                            CseConfig.ICON_SCALE_MAX.toFloat(),
+                        steps = 19, // (150-50)/5 = 20 段
+                        valueText = "${config.iconScale}%",
                         enabled = enabled,
-                        onSelect = { index ->
-                            val value = shrinkValues.getOrElse(index) { CseConfig.SHRINK_NONE }
-                            store.setShrinkIcon(value)
-                            onConfigChange(config.copy(shrinkIcon = value))
+                        onValueChange = { v ->
+                            val pct = (v / 5f).roundToInt() * 5
+                            store.setIconScale(pct)
+                            onConfigChange(config.copy(iconScale = pct))
                         }
                     )
                 }
@@ -168,30 +162,65 @@ private fun IconPageContent(
                         }
                     )
                 }
+                entry("icon_offset_x") {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.icon_offset_x),
+                        description = stringResource(R.string.icon_offset_x_desc),
+                        value = config.iconOffsetX.toFloat(),
+                        valueRange = CseConfig.OFFSET_MIN.toFloat()..CseConfig.OFFSET_MAX.toFloat(),
+                        steps = 59, // (300-(-300))/10 = 60 段
+                        valueText = stringResource(R.string.offset_value, config.iconOffsetX),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val dp = (v / 10f).toInt() * 10
+                            store.setIconOffsetX(dp)
+                            onConfigChange(config.copy(iconOffsetX = dp))
+                        }
+                    )
+                }
+                entry("icon_offset_y") {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.icon_offset_y),
+                        description = stringResource(R.string.icon_offset_y_desc),
+                        value = config.iconOffsetY.toFloat(),
+                        valueRange = CseConfig.OFFSET_MIN.toFloat()..CseConfig.OFFSET_MAX.toFloat(),
+                        steps = 59,
+                        valueText = stringResource(R.string.offset_value, config.iconOffsetY),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val dp = (v / 10f).toInt() * 10
+                            store.setIconOffsetY(dp)
+                            onConfigChange(config.copy(iconOffsetY = dp))
+                        }
+                    )
+                }
             }
         )
 
         // ==================== 「个性化」列表组 ====================
-        // MD3E 几何形变动画开关 + 其衍生配置（大小 / 颜色）
+        // 加载动画（不启用 / 几何图形 / 加载条）+ 衍生配置
         SplicedColumnGroup(
             title = stringResource(R.string.group_personalize),
             entries = buildList {
-                entry("morph_shape") {
-                    SwitchWidget(
+                entry("loading_anim") {
+                    ChoiceWidget(
                         iconRes = R.drawable.tile,
                         title = stringResource(R.string.morph_shape),
                         description = stringResource(R.string.morph_shape_desc),
-                        checked = config.enableMorphShape,
+                        selectedIndex = config.loadingAnimMode,
+                        options = loadingAnimOptions,
                         enabled = enabled,
-                        onCheckedChange = {
-                            store.setEnableMorphShape(it)
-                            onConfigChange(config.copy(enableMorphShape = it))
+                        onSelect = {
+                            store.setLoadingAnimMode(it)
+                            onConfigChange(config.copy(loadingAnimMode = it))
                         }
                     )
                 }
                 entry(
                     key = "morph_size",
-                    visible = config.enableMorphShape
+                    visible = config.loadingAnimMode == CseConfig.LOADING_ANIM_SHAPE
                 ) {
                     SliderWidget(
                         iconRes = R.drawable.tile,
@@ -213,8 +242,99 @@ private fun IconPageContent(
                     )
                 }
                 entry(
+                    key = "loading_bar_length",
+                    visible = config.loadingAnimMode == CseConfig.LOADING_ANIM_BAR
+                ) {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.loading_bar_length),
+                        description = stringResource(R.string.loading_bar_length_desc),
+                        value = config.loadingBarLength.toFloat(),
+                        valueRange = CseConfig.LOADING_BAR_LENGTH_MIN.toFloat()..
+                            CseConfig.LOADING_BAR_LENGTH_MAX.toFloat(),
+                        steps = 43, // (480-40)/10 = 44 段
+                        valueText = stringResource(
+                            R.string.offset_value,
+                            config.loadingBarLength
+                        ),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val dp = (v / 10f).toInt() * 10
+                            store.setLoadingBarLength(dp)
+                            onConfigChange(config.copy(loadingBarLength = dp))
+                        }
+                    )
+                }
+                entry(
+                    key = "loading_bar_thickness",
+                    visible = config.loadingAnimMode == CseConfig.LOADING_ANIM_BAR
+                ) {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.loading_bar_thickness),
+                        description = stringResource(R.string.loading_bar_thickness_desc),
+                        value = config.loadingBarThickness.toFloat(),
+                        valueRange = CseConfig.LOADING_BAR_THICKNESS_MIN.toFloat()..
+                            CseConfig.LOADING_BAR_THICKNESS_MAX.toFloat(),
+                        steps = 21, // (24-2)/1 = 22 段
+                        valueText = stringResource(
+                            R.string.offset_value,
+                            config.loadingBarThickness
+                        ),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val t = v.toInt().coerceIn(
+                                CseConfig.LOADING_BAR_THICKNESS_MIN,
+                                CseConfig.LOADING_BAR_THICKNESS_MAX
+                            )
+                            store.setLoadingBarThickness(t)
+                            onConfigChange(config.copy(loadingBarThickness = t))
+                        }
+                    )
+                }
+                entry(
+                    key = "indicator_offset_x",
+                    visible = config.loadingAnimMode != CseConfig.LOADING_ANIM_NONE
+                ) {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.indicator_offset_x),
+                        description = stringResource(R.string.indicator_offset_x_desc),
+                        value = config.indicatorOffsetX.toFloat(),
+                        valueRange = CseConfig.OFFSET_MIN.toFloat()..CseConfig.OFFSET_MAX.toFloat(),
+                        steps = 59,
+                        valueText = stringResource(R.string.offset_value, config.indicatorOffsetX),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val dp = (v / 10f).toInt() * 10
+                            store.setIndicatorOffsetX(dp)
+                            onConfigChange(config.copy(indicatorOffsetX = dp))
+                        }
+                    )
+                }
+                entry(
+                    key = "indicator_offset_y",
+                    visible = config.loadingAnimMode != CseConfig.LOADING_ANIM_NONE
+                ) {
+                    SliderWidget(
+                        iconRes = R.drawable.tile,
+                        title = stringResource(R.string.indicator_offset_y),
+                        description = stringResource(R.string.indicator_offset_y_desc),
+                        value = config.indicatorOffsetY.toFloat(),
+                        valueRange = CseConfig.OFFSET_MIN.toFloat()..CseConfig.OFFSET_MAX.toFloat(),
+                        steps = 59,
+                        valueText = stringResource(R.string.offset_value, config.indicatorOffsetY),
+                        enabled = enabled,
+                        onValueChange = { v ->
+                            val dp = (v / 10f).toInt() * 10
+                            store.setIndicatorOffsetY(dp)
+                            onConfigChange(config.copy(indicatorOffsetY = dp))
+                        }
+                    )
+                }
+                entry(
                     key = "morph_color",
-                    visible = config.enableMorphShape
+                    visible = config.loadingAnimMode != CseConfig.LOADING_ANIM_NONE
                 ) {
                     ChoiceWidget(
                         iconRes = R.drawable.format_color_fill,

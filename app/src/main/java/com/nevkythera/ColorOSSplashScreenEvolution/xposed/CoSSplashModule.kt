@@ -1,15 +1,18 @@
 package com.Nevkythera.ColorOSSplashScreenEvolution.xposed
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.graphics.Outline
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.graphics.SurfaceTexture
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.util.Log
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
@@ -19,10 +22,12 @@ import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.palette.graphics.Palette
 import androidx.compose.ui.graphics.toArgb
+import com.Nevkythera.ColorOSSplashScreenEvolution.util.AppNameFontStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.GraphicUtils
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.SplashImageStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.util.SplashMedia
@@ -33,6 +38,7 @@ import java.lang.reflect.Executable
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.nio.ByteBuffer
+import java.util.Locale
 
 
 class CoSSplashModule : XposedModule() {
@@ -42,6 +48,13 @@ class CoSSplashModule : XposedModule() {
 
         /** system_server 的进程名固定为 "android" */
         const val PROCESS_SYSTEM = "android"
+
+        /**
+         * 现代模块（API 101+）里 system_server 的 scope 包名是 "system"
+         * （旧式模块才是反的：旧式 `android` = system_server）。
+         * 这里两个都认，避免因作用域写法差异而错过兜底。
+         */
+        const val PROCESS_SYSTEM_ALT = "system"
 
         /** 本模块唯一的 Hook 目标进程：SystemUI */
         const val PROCESS_SYSTEMUI = "com.android.systemui"
@@ -62,6 +75,28 @@ class CoSSplashModule : XposedModule() {
             "com.android.wm.shell.startingsurface.phone.PhoneStartingWindowTypeAlgorithm"
         const val CLS_OPLUS_MANAGER =
             "com.android.wm.shell.startingsurface.OplusShellStartingWindowManager"
+
+        /**
+         * system_server 侧决定“启动窗口类型”的 ColorOS 类（在 oplus-services.jar）。
+         *
+         * `ActivityRecord#addStartingWindow` 取类型时调的是 `ActivityRecordExtImpl`
+         * （→ IOplusStartingWindowManager → `OplusStartingWindowManager`），
+         * 而不是 `ActivityRecord#getStartingWindowType`（后者只在某些分支里被间接调用）。
+         */
+        const val CLS_OPLUS_STARTING_WINDOW_MANAGER =
+            "com.android.server.wm.OplusStartingWindowManager"
+        const val CLS_ACTIVITY_RECORD_EXT_IMPL =
+            "com.android.server.wm.ActivityRecordExtImpl"
+
+        /**
+         * 「最小遮罩显示时长」Hook 用：system_server 侧的启动窗口 surface。
+         *
+         * 它唯一的方法 `remove(ZZ)` 是系统向 SystemUI 发起移除的**唯一入口**
+         * （内部才去构造 StartingWindowRemovalInfo —— 连同 SurfaceControl/leash）。
+         * 因此推迟它 = 推迟“发起移除”，而完全不接触 SurfaceControl。
+         */
+        const val CLS_STARTING_SURFACE =
+            "com.android.server.wm.StartingSurfaceController\$StartingSurface"
 
         const val CLS_CONTENT_DRAWER =
             "com.android.wm.shell.startingsurface.SplashscreenContentDrawer"
@@ -129,7 +164,7 @@ class CoSSplashModule : XposedModule() {
         var DRAW_ROUND_CORNER = false
 
         @Volatile
-        var SHRINK_ICON = 0   // 0=不缩小 / 2=全部（值 1 已废弃，见 SHRINK_* 常量注释）
+        var ICON_SCALE = 100   // 图标大小百分比（100 = 原始大小）
 
         @Volatile
         var REPLACE_ICON = false
@@ -165,11 +200,87 @@ class CoSSplashModule : XposedModule() {
         var MORPH_SHAPE_COLOR_TYPE = 0
 
         /**
-         * 移除图标：强制隐藏 SplashScreen 上的所有图标（应用图标 + 品牌图）。
-         * 与"关闭截图覆盖"（DISABLE_PREVIEW）互相独立，可同时开启。
+         * 加载动画模式：0 = 不启用 / 1 = 几何图形 / 2 = 加载条。
+         * 旧布尔开关 [KEY_ENABLE_MORPH_SHAPE] 仍兼容读取（true → 几何图形）。
+         */
+        @Volatile
+        var LOADING_ANIM_MODE = LOADING_ANIM_NONE
+
+        /** 加载条长度（dp）。 */
+        @Volatile
+        var LOADING_BAR_LENGTH = LOADING_BAR_LENGTH_DEFAULT
+
+        /** 加载条粗细（dp）。 */
+        @Volatile
+        var LOADING_BAR_THICKNESS = LOADING_BAR_THICKNESS_DEFAULT
+
+        /** 图标水平 / 垂直位移（dp，默认 0 = 原位置）。 */
+        @Volatile
+        var ICON_OFFSET_X = 0
+
+        @Volatile
+        var ICON_OFFSET_Y = 0
+
+        /** 加载动画指示器水平 / 垂直位移（dp，相对默认位置，默认 0）。 */
+        @Volatile
+        var INDICATOR_OFFSET_X = 0
+
+        @Volatile
+        var INDICATOR_OFFSET_Y = 0
+
+        /**
+         * 移除图标：强制隐藏 SplashScreen 上的**应用图标**（不含底部品牌图）。
+         * 与"关闭截图覆盖"（DISABLE_PREVIEW）、"移除底部图片"（REMOVE_BRANDING_IMAGE）互相独立。
          */
         @Volatile
         var REMOVE_ICON = false
+
+        /** 移除底部图片：清掉应用自带的底部品牌图（mBrandingImage）。 */
+        @Volatile
+        var REMOVE_BRANDING_IMAGE = false
+
+        /** 显示应用名称。 */
+        @Volatile
+        var SHOW_APP_NAME = false
+
+        /** 应用名称文本大小（sp）。 */
+        @Volatile
+        var APP_NAME_TEXT_SIZE = 14
+
+        /** 应用名称水平 / 垂直位移（dp）。 */
+        @Volatile
+        var APP_NAME_OFFSET_X = 0
+
+        @Volatile
+        var APP_NAME_OFFSET_Y = 0
+
+        /** 应用名称显示位置：0 = 图标正下方，1 = 底部。 */
+        @Volatile
+        var APP_NAME_POSITION = APP_NAME_POS_BOTTOM
+
+        /** 应用名称取色：0 = 跟随图标，1 = 自定义颜色，2 = 跟随系统。 */
+        @Volatile
+        var APP_NAME_COLOR_TYPE = APP_NAME_COLOR_FROM_SYSTEM
+
+        /** 应用名称自定义颜色（ARGB 十六进制字符串）。 */
+        @Volatile
+        var APP_NAME_CUSTOM_COLOR = "#FFFFFF"
+
+        /** 应用名称字体粗细（100~900）。 */
+        @Volatile
+        var APP_NAME_FONT_WEIGHT = 400
+
+        /** 使用英语作为文本（应用支持英语时）。 */
+        @Volatile
+        var APP_NAME_USE_ENGLISH = false
+
+        /** 自定义字体文件名（空 = 未选择）。 */
+        @Volatile
+        var APP_NAME_FONT_NAME = ""
+
+        /** 自定义字体版本（换字体时更新）。 */
+        @Volatile
+        var APP_NAME_FONT_VERSION = 0L
 
         /** 自定义背景图片：是否启用。 */
         @Volatile
@@ -223,6 +334,7 @@ class CoSSplashModule : XposedModule() {
         const val KEY_DISABLE_PREVIEW = "disable_preview"
         const val KEY_DRAW_ROUND_CORNER = "draw_round_corner"
         const val KEY_SHRINK_ICON = "shrink_icon"
+        const val KEY_ICON_SCALE = "icon_scale"
         const val KEY_REPLACE_ICON = "replace_icon"
         const val KEY_CHANGE_BG_COLOR_TYPE = "change_bg_color_type"
         const val KEY_BG_COLOR_MODE = "bg_color_mode"
@@ -252,10 +364,32 @@ class CoSSplashModule : XposedModule() {
         var AOSP_TRANSITION = false
         const val KEY_MORPH_SHAPE_SCALE = "morph_shape_scale"
         const val KEY_MORPH_SHAPE_COLOR_TYPE = "morph_shape_color_type"
+        const val KEY_LOADING_ANIM_MODE = "loading_anim_mode"
+        const val KEY_LOADING_BAR_LENGTH = "loading_bar_length"
+        const val KEY_LOADING_BAR_THICKNESS = "loading_bar_thickness"
+        const val KEY_ICON_OFFSET_X = "icon_offset_x"
+        const val KEY_ICON_OFFSET_Y = "icon_offset_y"
+        const val KEY_INDICATOR_OFFSET_X = "indicator_offset_x"
+        const val KEY_INDICATOR_OFFSET_Y = "indicator_offset_y"
         const val KEY_REMOVE_ICON = "remove_icon"
+        const val KEY_REMOVE_BRANDING_IMAGE = "remove_branding_image"
+        const val KEY_SHOW_APP_NAME = "show_app_name"
+        const val KEY_APP_NAME_TEXT_SIZE = "app_name_text_size"
+        const val KEY_APP_NAME_OFFSET_X = "app_name_offset_x"
+        const val KEY_APP_NAME_OFFSET_Y = "app_name_offset_y"
+        const val KEY_APP_NAME_COLOR_TYPE = "app_name_color_type"
+        const val KEY_APP_NAME_CUSTOM_COLOR = "app_name_custom_color"
+        const val KEY_APP_NAME_POSITION = "app_name_position"
+        const val KEY_APP_NAME_FONT_WEIGHT = "app_name_font_weight"
+        const val KEY_APP_NAME_USE_ENGLISH = "app_name_use_english"
+        const val KEY_APP_NAME_FONT_NAME = "app_name_font_name"
+        const val KEY_APP_NAME_FONT_VERSION = "app_name_font_version"
 
         /** 装饰层标识：MD3E 几何形变。 */
         const val TAG_MORPH_SHAPE = "cse_morph_shape"
+
+        /** 装饰层标识：MD3 加载条。 */
+        const val TAG_LOADING_BAR = "cse_loading_bar"
 
         /** 装饰层标识：自定义背景图片。 */
         const val TAG_SPLASH_IMAGE = "cse_splash_image"
@@ -276,9 +410,66 @@ class CoSSplashModule : XposedModule() {
         const val MEDIA_CACHE_FILE = "cse_splash_media"
         const val MEDIA_CACHE_VERSION_FILE = "cse_splash_media.ver"
 
+        /** 配置全量读取的最小间隔（毫秒）。 */
+        const val CONFIG_REFRESH_THROTTLE_MS = 80L
+
+        /** 自定义最小遮罩显示时长：默认值 / 输入范围。 */
+        const val MIN_SPLASH_SHOW_MS_DEFAULT = 400
+        const val MIN_SPLASH_SHOW_MS_MIN = 100
+        const val MIN_SPLASH_SHOW_MS_MAX = 60000
+
+        /** 自定义最小遮罩显示时长：是否启用。 */
+        @Volatile
+        var MIN_SPLASH_SHOW_ENABLED = true
+
+        /** 自定义最小遮罩显示时长（ms）。 */
+        @Volatile
+        var MIN_SPLASH_SHOW_MS = MIN_SPLASH_SHOW_MS_DEFAULT
+
+        const val KEY_MIN_SPLASH_SHOW_ENABLED = "min_splash_show_enabled"
+        const val KEY_MIN_SPLASH_SHOW_MS = "min_splash_show_ms"
+
         /** 指示器取色方式。 */
         const val MORPH_COLOR_FROM_MONET = 0
         const val MORPH_COLOR_FROM_ICON = 1
+
+        /** 加载动画模式 / 尺寸 / 位移常量（需与 App 侧 CseConfig 保持一致）。 */
+        const val LOADING_ANIM_NONE = 0
+        const val LOADING_ANIM_SHAPE = 1
+        const val LOADING_ANIM_BAR = 2
+        const val LOADING_BAR_LENGTH_MIN = 40
+        const val LOADING_BAR_LENGTH_MAX = 480
+        const val LOADING_BAR_LENGTH_DEFAULT = 160
+        const val LOADING_BAR_THICKNESS_MIN = 2
+        const val LOADING_BAR_THICKNESS_MAX = 24
+        const val LOADING_BAR_THICKNESS_DEFAULT = 4
+        const val OFFSET_MIN = -300
+        const val OFFSET_MAX = 300
+
+        /** 加载条相对图标底边的默认间距（dp）。 */
+        const val BELOW_ICON_GAP_DP = 12f
+
+        /** 应用名称相对图标底边的默认间距（dp）。 */
+        const val APP_NAME_GAP_DP = 40f
+
+        /** 装饰层标识：应用名称。 */
+        const val TAG_APP_NAME = "cse_app_name"
+
+        /** 应用名称取色：0 = 跟随图标，1 = 自定义颜色，2 = 跟随系统。 */
+        const val APP_NAME_COLOR_FROM_ICON = 0
+        const val APP_NAME_COLOR_CUSTOM = 1
+        const val APP_NAME_COLOR_FROM_SYSTEM = 2
+
+        /** 应用名称显示位置：0 = 图标正下方，1 = 底部。 */
+        const val APP_NAME_POS_BELOW_ICON = 0
+        const val APP_NAME_POS_BOTTOM = 1
+
+        /** 选「底部」且没有品牌图时的兜底底边距（dp）。 */
+        const val APP_NAME_BOTTOM_MARGIN_DP = 48f
+
+        /** SystemUI 侧字体缓存文件名与版本记录。 */
+        const val FONT_CACHE_FILE = "cse_app_name_font"
+        const val FONT_CACHE_VERSION_FILE = "cse_app_name_font.ver"
 
         /** 指示器色块的不透明度（略透明，避免完全压住背景遮罩颜色）。 */
         const val TINT_ALPHA = 0xE6
@@ -298,14 +489,9 @@ class CoSSplashModule : XposedModule() {
         /** system_server 里承载热启动判断的类。 */
         const val CLS_ACTIVITY_RECORD = "com.android.server.wm.ActivityRecord"
 
-        // ---- 缩小图标类型 ----
-        //   因实用性极低（绝大多数应用的图标本身就是自适应图标，判定条件
-        //   `intrinsicWidth < iconSize / 1.5` 几乎永远不成立）已被移除，
-        //   相关 UI 选项、字符串资源、判定分支全部删除。
-        //   ⚠️ 值 1 现在成为**历史遗留的无效值**：若老用户配置里存着 1，
-        //      读取时会被 `coerceSHRINK` 归一化为 0（不缩小），见 loadRemoteConfig。
-        const val SHRINK_NONE = 0
-        const val SHRINK_ALL = 2
+        // ---- 图标大小 ----
+        //   百分比（100 = 原始大小），替代原来的「缩小图标」两态开关。
+        //   旧 key `shrink_icon` 仅用于迁移读取，见 refreshConfigSilently。
 
         // ---- 退出动画模式 ----
         const val EXIT_MODE_DEFAULT = 0
@@ -361,6 +547,26 @@ class CoSSplashModule : XposedModule() {
     /** 当前图标是否需要缩小（供 createIconDrawable 改 mFinalIconSize）。 */
     @Volatile
     private var currentIsNeedShrinkIcon: Boolean = false
+
+    /** 远程偏好实例缓存：避免每次 Hook 调用都走一遍 getRemotePreferences。 */
+    private var cachedRemotePrefs: android.content.SharedPreferences? = null
+
+    /** 上次全量读取配置的时间戳（节流用）。 */
+    private var lastConfigReadMs = 0L
+
+    /**
+     * 粒子退出动画是否已接管。
+     *
+     * 退出时会把 splash 的子 View（含我们加的指示器 / 应用名称）隐藏，只留粒子。
+     * 但定位回调（layout listener / preDraw）可能在之后又被触发并把它们重新显示，
+     * 导致“粒子飞的同时本体还留在屏幕上”——这个标记用来阻止重新显示。
+     */
+    @Volatile
+    private var exitAnimating = false
+
+    /** 本次启动遮罩“开始显示”的时刻（uptimeMillis），供“最小遮罩显示时长”用。 */
+    @Volatile
+    private var splashShownAtMs = 0L
 
     /** 本次生命周期是否已执行过缩小（防止 createIconDrawable 被多次调用导致重复缩小）。 */
     @Volatile
@@ -426,6 +632,19 @@ class CoSSplashModule : XposedModule() {
         readRemoteConfig()
         hotStartInstalled = true
         installStage("J_hot_start") { installHotStartSplashHook(param.classLoader) }
+        installStage("J2_hot_start_ext") {
+            installHotStartForceHook(
+                param.classLoader, CLS_ACTIVITY_RECORD_EXT_IMPL, "hot_start_ext"
+            )
+        }
+        installStage("J3_hot_start_oplus") {
+            installHotStartForceHook(
+                param.classLoader, CLS_OPLUS_STARTING_WINDOW_MANAGER, "hot_start_oplus"
+            )
+        }
+        installStage("J4_min_splash_hold") {
+            installMinSplashHoldHook(param.classLoader)
+        }
     }
 
     /** 热启动 Hook 是否已安装（避免 onPackageReady 的兜底分支重复安装）。 */
@@ -451,16 +670,22 @@ class CoSSplashModule : XposedModule() {
      * 用户刚在设置界面里改的值 —— 这就是"实时生效"的关键。
      */
     private fun refreshConfigSilently(logResult: Boolean = false) {
+        //   两个缓存：远程偏好实例只取一次（避免每次 Hook 都走一次框架侧 IPC）；
+        //   再加一个短节流，避免同一次启动里被多个 Hook 反复全量读取（会拖慢首帧）。
+        val now = android.os.SystemClock.uptimeMillis()
+        if (!logResult && now - lastConfigReadMs < CONFIG_REFRESH_THROTTLE_MS) return
+        lastConfigReadMs = now
         try {
-            val prefs = getRemotePreferences(REMOTE_PREFS_NAME) ?: return
+            val prefs = cachedRemotePrefs ?: (getRemotePreferences(REMOTE_PREFS_NAME)?.also {
+                cachedRemotePrefs = it
+            }) ?: return
             FORCE_NATIVE = prefs.getBoolean(KEY_FORCE_NATIVE, true)
             DISABLE_PREVIEW = prefs.getBoolean(KEY_DISABLE_PREVIEW, true)
             DRAW_ROUND_CORNER = prefs.getBoolean(KEY_DRAW_ROUND_CORNER, false)
-            //   老用户配置里若残留 1，映射回 0（不缩小），否则 when 分支会走到
-            //   else -> false 虽然也是"不缩小"，但日志/远程配置里会出现无效值，
-            //   显式归一让状态干净可追踪。
-            val rawShrink = prefs.getInt(KEY_SHRINK_ICON, SHRINK_NONE)
-            SHRINK_ICON = if (rawShrink == SHRINK_ALL) SHRINK_ALL else SHRINK_NONE
+            //   老配置只有「缩小图标」两态开关；开启时近似映射成 67%（/1.5）。
+            val legacyShrink = prefs.getInt(KEY_SHRINK_ICON, 0)
+            ICON_SCALE = prefs.getInt(KEY_ICON_SCALE, if (legacyShrink == 2) 67 else 100)
+                .coerceIn(50, 150)
             REPLACE_ICON = prefs.getBoolean(KEY_REPLACE_ICON, false)
             CHANGE_BG_COLOR_TYPE = prefs.getInt(KEY_CHANGE_BG_COLOR_TYPE, 0)
             BG_COLOR_MODE = prefs.getInt(KEY_BG_COLOR_MODE, 2)
@@ -468,11 +693,46 @@ class CoSSplashModule : XposedModule() {
             CUSTOM_BG_COLOR_NIGHT =
                 prefs.getString(KEY_CUSTOM_BG_COLOR_NIGHT, "#000000") ?: "#000000"
             PARTICLE_TIME_MS = prefs.getInt(KEY_PARTICLE_TIME_MS, 600).coerceIn(100, 2000)
-            ENABLE_MORPH_SHAPE = prefs.getBoolean(KEY_ENABLE_MORPH_SHAPE, false)
+            val rawMode = prefs.getInt(KEY_LOADING_ANIM_MODE, -1)
+            LOADING_ANIM_MODE = if (rawMode in LOADING_ANIM_NONE..LOADING_ANIM_BAR) {
+                rawMode
+            } else if (prefs.getBoolean(KEY_ENABLE_MORPH_SHAPE, false)) {
+                // 老配置只有布尔开关（true = 几何图形），迁移为新模式
+                LOADING_ANIM_SHAPE
+            } else {
+                LOADING_ANIM_NONE
+            }
+            ENABLE_MORPH_SHAPE = LOADING_ANIM_MODE == LOADING_ANIM_SHAPE
             MORPH_SHAPE_SCALE = prefs.getInt(KEY_MORPH_SHAPE_SCALE, 100).coerceIn(50, 300)
             MORPH_SHAPE_COLOR_TYPE = prefs.getInt(KEY_MORPH_SHAPE_COLOR_TYPE, 0)
+            LOADING_BAR_LENGTH = prefs.getInt(KEY_LOADING_BAR_LENGTH, LOADING_BAR_LENGTH_DEFAULT)
+                .coerceIn(LOADING_BAR_LENGTH_MIN, LOADING_BAR_LENGTH_MAX)
+            LOADING_BAR_THICKNESS = prefs.getInt(
+                KEY_LOADING_BAR_THICKNESS, LOADING_BAR_THICKNESS_DEFAULT
+            ).coerceIn(LOADING_BAR_THICKNESS_MIN, LOADING_BAR_THICKNESS_MAX)
+            ICON_OFFSET_X = prefs.getInt(KEY_ICON_OFFSET_X, 0).coerceIn(OFFSET_MIN, OFFSET_MAX)
+            ICON_OFFSET_Y = prefs.getInt(KEY_ICON_OFFSET_Y, 0).coerceIn(OFFSET_MIN, OFFSET_MAX)
+            INDICATOR_OFFSET_X = prefs.getInt(KEY_INDICATOR_OFFSET_X, 0)
+                .coerceIn(OFFSET_MIN, OFFSET_MAX)
+            INDICATOR_OFFSET_Y = prefs.getInt(KEY_INDICATOR_OFFSET_Y, 0)
+                .coerceIn(OFFSET_MIN, OFFSET_MAX)
             REMOVE_ICON = prefs.getBoolean(KEY_REMOVE_ICON, false)
+            REMOVE_BRANDING_IMAGE = prefs.getBoolean(KEY_REMOVE_BRANDING_IMAGE, false)
+            SHOW_APP_NAME = prefs.getBoolean(KEY_SHOW_APP_NAME, false)
+            APP_NAME_TEXT_SIZE = prefs.getInt(KEY_APP_NAME_TEXT_SIZE, 14).coerceIn(8, 48)
+            APP_NAME_OFFSET_X = prefs.getInt(KEY_APP_NAME_OFFSET_X, 0).coerceIn(OFFSET_MIN, OFFSET_MAX)
+            APP_NAME_OFFSET_Y = prefs.getInt(KEY_APP_NAME_OFFSET_Y, 0).coerceIn(OFFSET_MIN, OFFSET_MAX)
+            APP_NAME_POSITION = prefs.getInt(KEY_APP_NAME_POSITION, APP_NAME_POS_BOTTOM)
+            APP_NAME_COLOR_TYPE = prefs.getInt(KEY_APP_NAME_COLOR_TYPE, APP_NAME_COLOR_FROM_SYSTEM)
+            APP_NAME_CUSTOM_COLOR = prefs.getString(KEY_APP_NAME_CUSTOM_COLOR, "#FFFFFF") ?: "#FFFFFF"
+            APP_NAME_FONT_WEIGHT = prefs.getInt(KEY_APP_NAME_FONT_WEIGHT, 400).coerceIn(100, 900)
+            APP_NAME_USE_ENGLISH = prefs.getBoolean(KEY_APP_NAME_USE_ENGLISH, false)
+            APP_NAME_FONT_NAME = prefs.getString(KEY_APP_NAME_FONT_NAME, "") ?: ""
+            APP_NAME_FONT_VERSION = prefs.getLong(KEY_APP_NAME_FONT_VERSION, 0L)
             ENABLE_HOT_START_SPLASH = prefs.getBoolean(KEY_ENABLE_HOT_START_SPLASH, false)
+            MIN_SPLASH_SHOW_ENABLED = prefs.getBoolean(KEY_MIN_SPLASH_SHOW_ENABLED, true)
+            MIN_SPLASH_SHOW_MS = prefs.getInt(KEY_MIN_SPLASH_SHOW_MS, MIN_SPLASH_SHOW_MS_DEFAULT)
+                .coerceIn(MIN_SPLASH_SHOW_MS_MIN, MIN_SPLASH_SHOW_MS_MAX)
             EXIT_ANIM_MODE = when (prefs.getInt(KEY_EXIT_ANIM_MODE, EXIT_MODE_DEFAULT)) {
                 EXIT_MODE_DIFFUSE, EXIT_MODE_DISSOLVE ->
                     prefs.getInt(KEY_EXIT_ANIM_MODE, EXIT_MODE_DEFAULT)
@@ -494,7 +754,7 @@ class CoSSplashModule : XposedModule() {
                     Log.INFO, TAG,
                     "event=remote_config result=ok force_native=$FORCE_NATIVE " +
                         "disable_preview=$DISABLE_PREVIEW round_corner=$DRAW_ROUND_CORNER " +
-                        "shrink_icon=$SHRINK_ICON replace_icon=$REPLACE_ICON " +
+                        "icon_scale=$ICON_SCALE replace_icon=$REPLACE_ICON " +
                         "remove_icon=$REMOVE_ICON " +
                         "morph=$ENABLE_MORPH_SHAPE morph_scale=$MORPH_SHAPE_SCALE " +
                         "morph_color=$MORPH_SHAPE_COLOR_TYPE " +
@@ -534,7 +794,7 @@ class CoSSplashModule : XposedModule() {
         //
         // 去找 ActivityRecord，刷一大堆 ClassNotFoundException。
         // 现在改为：先**真的试着加载一次**该类，加载不到就静默跳过。
-        if (pkg == PROCESS_SYSTEM && !hotStartInstalled) {
+        if ((pkg == PROCESS_SYSTEM || pkg == PROCESS_SYSTEM_ALT) && !hotStartInstalled) {
             if (runCatching { param.classLoader.loadClass(CLS_ACTIVITY_RECORD) }.isSuccess) {
                 if (!routedPackages.add("$pkg#system")) {
                     cseLog(Log.INFO, TAG, "event=install_skipped result=skip reason=already_installed package=$pkg")
@@ -548,6 +808,15 @@ class CoSSplashModule : XposedModule() {
                 )
                 hotStartInstalled = true
                 installStage("J_hot_start") { installHotStartSplashHook(sysCl) }
+                installStage("J2_hot_start_ext") {
+                    installHotStartForceHook(sysCl, CLS_ACTIVITY_RECORD_EXT_IMPL, "hot_start_ext")
+                }
+                installStage("J3_hot_start_oplus") {
+                    installHotStartForceHook(
+                        sysCl, CLS_OPLUS_STARTING_WINDOW_MANAGER, "hot_start_oplus"
+                    )
+                }
+                installStage("J4_min_splash_hold") { installMinSplashHoldHook(sysCl) }
             } else {
                 cseLog(
                     Log.INFO, TAG,
@@ -584,6 +853,8 @@ class CoSSplashModule : XposedModule() {
         installStage("D_block_content_background") { installBlockContentBackgroundHook(cl) }
         installStage("E_restore_ripple") { installRestoreRippleHooks(cl) }
         installStage("E2_exit_particle") { installExitParticleHook(cl) }
+        installStage("E3_force_reveal_anim") { installForceRevealAnimationHook(cl) }
+        installStage("E4_exit_anim_probe") { installExitAnimProbe(cl) }
         installStage("F_legacy_type_rewrite") { installLegacyTypeRewriteHooks(cl) }
         installStage("G_icon_features") { installIconHooks(cl) }
         installStage("H_background_features") { installBackgroundHooks(cl) }
@@ -633,6 +904,15 @@ class CoSSplashModule : XposedModule() {
                         // 新的一次启动：先清掉上一轮的图标/背景状态，再解析包名
                         resetSplashState()
                         extractCurrentPackageName(args)
+                        splashShownAtMs = android.os.SystemClock.uptimeMillis()
+
+                        // 探针：走到这里说明 shell 真的在构建 SplashScreenView（而不是贴一张截图）。
+                        // 与 exit_anim_probe 对看，就能区分“有遮罩且有动画”与“只有截图”两种情况。
+                        cseLog(
+                            Log.INFO, TAG,
+                            "event=splash_built_probe id=drawer_make_content_view " +
+                                "pkg=$currentPackageName"
+                        )
 
                         // 只有总开关打开才强制改写窗口类型
                         if (FORCE_NATIVE) {
@@ -803,7 +1083,7 @@ class CoSSplashModule : XposedModule() {
                         }
 
                         // --- mOverlayDrawable -> null ---
-                        if (fOverlay != null) {
+                        if (DISABLE_PREVIEW && fOverlay != null) {
                             runCatching {
                                 val cur = fOverlay.get(self)
                                 if (cur != null) {
@@ -814,7 +1094,7 @@ class CoSSplashModule : XposedModule() {
                         }
 
                         // --- 截图覆盖：mForceBigIcon -> true（让自定义图标应用也走原生大图标） ---
-                        if (fForceBigIcon != null) {
+                        if (DISABLE_PREVIEW && fForceBigIcon != null) {
                             runCatching {
                                 val cur = fForceBigIcon.get(self)
                                 if (cur != true) {
@@ -826,7 +1106,7 @@ class CoSSplashModule : XposedModule() {
 
                         // --- 截图覆盖：mIsSupportSplashScreenPreview -> false ---
                         //     （配合 mForceBigIcon=true，触发 needKeepStyleWithLauncherIcon）
-                        if (fSupportPreview != null) {
+                        if (DISABLE_PREVIEW && fSupportPreview != null) {
                             runCatching {
                                 val cur = fSupportPreview.get(self)
                                 if (cur != false) {
@@ -901,7 +1181,7 @@ class CoSSplashModule : XposedModule() {
                         //   万一某 ROM 版本在 mSuggestType==1 时仍读取 mSplashScreenIcon，
                         //   这里也保证它走 HighResIconProvider.getIcon() 拿应用图标。
                         //   （"从图标取色"已废弃，不再依赖 mSplashScreenIcon 取色。）
-                        runCatching {
+                        if (DISABLE_PREVIEW) runCatching {
                             val fSplashIcon = attrs?.javaClass?.getDeclaredField("mSplashScreenIcon")
                                 ?.apply { isAccessible = true }
                             if (fSplashIcon != null && attrs != null) {
@@ -915,10 +1195,9 @@ class CoSSplashModule : XposedModule() {
                             log(Log.WARN, TAG, "event=hook_error id=builder_build field=mSplashScreenIcon", it)
                         }
 
-                        // --- 清空 mTmpAttrs.mBrandingImage（"关闭截图覆盖"打开时） ---
-                        //   会 setBrandingDrawable(...) 把品牌图贴在底部（smali 第 340-391 行）。
-                        //   用户要求：打开"关闭截图覆盖"后不显示任何图片，包括底部品牌图。
-                        if (DISABLE_PREVIEW) {
+                        // --- 清空 mTmpAttrs.mBrandingImage（"移除底部图片"打开时） ---
+                        //   否则会 setBrandingDrawable(...) 把品牌图贴在底部（smali 第 340-391 行）。
+                        if (REMOVE_BRANDING_IMAGE) {
                             runCatching {
                                 val fBranding = attrs?.javaClass?.getDeclaredField("mBrandingImage")
                                     ?.apply { isAccessible = true }
@@ -1029,6 +1308,12 @@ class CoSSplashModule : XposedModule() {
                         refreshConfigSilently()
                         val args = chain.args.toTypedArray()
                         val original = args.getOrNull(0)
+                        // 探针：退出动画入口是否被调用、传进来的类型是什么。
+                        cseLog(
+                            Log.INFO, TAG,
+                            "event=exit_anim_probe id=exit_anim_utils args=${args.size} " +
+                                "type=$original arg1=${args.getOrNull(1)?.javaClass?.simpleName}"
+                        )
                         if (FORCE_NATIVE && original is Int && original != EXIT_ANIM_RIPPLE) {
                             cseLog(
                                 Log.INFO, TAG,
@@ -1113,7 +1398,13 @@ class CoSSplashModule : XposedModule() {
             id = "oplus_revise_type",
             label = "OplusShellStartingWindowManager#getReviseStartingWindowType"
         ) { original ->
-            if (original == TYPE_LEGACY_SPLASH_SCREEN) TYPE_SPLASH_SCREEN else original
+            when {
+                original == TYPE_LEGACY_SPLASH_SCREEN -> TYPE_SPLASH_SCREEN
+                // 热启动：系统/ColorOS 给的是“截图”类型时改成真正的 SplashScreen，
+                // 让它走完整的 splash 流程（开关打开时才改）。
+                original == TYPE_SNAPSHOT && ENABLE_HOT_START_SPLASH -> TYPE_SPLASH_SCREEN
+                else -> original
+            }
         }
 
         hookIntReturning(
@@ -1121,7 +1412,12 @@ class CoSSplashModule : XposedModule() {
             id = "oplus_adjust_type",
             label = "OplusShellStartingWindowManager#adjustSuggestedWindowType"
         ) { original ->
-            if (original == TYPE_LEGACY_SPLASH_SCREEN) TYPE_SPLASH_SCREEN else original
+            when {
+                original == TYPE_LEGACY_SPLASH_SCREEN -> TYPE_SPLASH_SCREEN
+                // 同上：热启动时的“截图”换成 SplashScreen。
+                original == TYPE_SNAPSHOT && ENABLE_HOT_START_SPLASH -> TYPE_SPLASH_SCREEN
+                else -> original
+            }
         }
     }
 
@@ -1276,17 +1572,13 @@ class CoSSplashModule : XposedModule() {
                                     val d = args.getOrNull(0) as? Drawable
                                     if (d != null) {
                                         val iconSize = appIconSize(cl)
-                                        currentIsNeedShrinkIcon = when (SHRINK_ICON) {
-                                            SHRINK_NONE -> false
-                                            SHRINK_ALL -> true
-                                            else -> false
-                                        }
+                                        currentIsNeedShrinkIcon = ICON_SCALE != 100
                                         iconStateDecided = true
                                         if (!iconReplaced) currentIconDrawable = d
                                         cseLog(
                                             Log.INFO, TAG,
                                             "event=icon_state pkg=$pkg " +
-                                                "shrinkMode=$SHRINK_ICON iconSize=$iconSize " +
+                                                "iconScale=$ICON_SCALE iconSize=$iconSize " +
                                                 "intrinsic=${d.intrinsicWidth} " +
                                                 "isAdaptive=${d is android.graphics.drawable.AdaptiveIconDrawable} " +
                                                 "needShrink=$currentIsNeedShrinkIcon " +
@@ -1299,7 +1591,7 @@ class CoSSplashModule : XposedModule() {
                                 if (currentIsNeedShrinkIcon && !iconShrinkApplied) {
                                     val cur = fFinalIconSize.get(self) as? Int
                                     if (cur != null && cur > 0) {
-                                        val newSize = (cur / 1.5).toInt()
+                                        val newSize = (cur * ICON_SCALE / 100)
                                         if (newSize > 0) {
                                             fFinalIconSize.set(self, newSize)
                                             iconShrinkApplied = true
@@ -1355,7 +1647,7 @@ class CoSSplashModule : XposedModule() {
                             val args = chain.args.toTypedArray()
                             val cur = args.getOrNull(0) as? Int
                             if (cur != null && cur > 0) {
-                                val newSize = (cur / 1.5).toInt()
+                                val newSize = (cur * ICON_SCALE / 100)
                                 if (newSize > 0) {
                                     args[0] = newSize
                                     iconShrinkApplied = true
@@ -1708,15 +2000,11 @@ class CoSSplashModule : XposedModule() {
         //   createIconDrawable 侧不再重复替换 / 重复计算。
         iconReplaced = true
         iconStateDecided = true
-        currentIsNeedShrinkIcon = when (SHRINK_ICON) {
-            SHRINK_NONE -> false
-            SHRINK_ALL -> true
-            else -> false
-        }
+        currentIsNeedShrinkIcon = ICON_SCALE != 100
         //   这里把缩放判定的全部输入输出打出来，便于从 LSPosed 日志直接确诊。
         cseLog(
             Log.INFO, TAG,
-            "event=icon_state pkg=$targetPkg shrinkMode=$SHRINK_ICON " +
+            "event=icon_state pkg=$targetPkg iconScale=$ICON_SCALE " +
                 "iconSize=$iconSize intrinsic=${drawable.intrinsicWidth} " +
                 "isAdaptive=${drawable is android.graphics.drawable.AdaptiveIconDrawable} " +
                 "needShrink=$currentIsNeedShrinkIcon"
@@ -1950,7 +2238,224 @@ class CoSSplashModule : XposedModule() {
         }
     }
 
+    /**
+     * 热启动：在 ColorOS 的几个候选入口上做“返回 SNAPSHOT 就改成 SPLASH_SCREEN”。
+     *
+     * 逆向 framework（oplus-services.jar）后确认：`ActivityRecord#addStartingWindow` 取类型时调的是
+     * `mActivityRecordExt.getStartingWindowType(...)`，即 `ActivityRecordExtImpl` →
+     * `IOplusStartingWindowManager` → `OplusStartingWindowManager`；而 AOSP 的
+     * `ActivityRecord#getStartingWindowType` 只在某些分支里才会被间接调用。所以这里把
+     * ColorOS 的两个实现都钩上（哪个进都行），并打一条探针日志便于定位。
+     */
+    private fun installHotStartForceHook(cl: ClassLoader, className: String, id: String) {
+        try {
+            val cls = cl.loadClass(className)
+            val methods = cls.declaredMethods.filter { m ->
+                m.name == "getStartingWindowType" &&
+                    m.returnType == Int::class.javaPrimitiveType &&
+                    // ActivityRecordExtImpl 侧是 7 个（Z×6 + TaskSnapshot，ActivityRecord 存字段），
+                    // OplusStartingWindowManager 侧是 8 个（多一个 ActivityRecord 参数）。
+                    m.parameterCount in 7..8
+            }
+            if (methods.isEmpty()) {
+                log(
+                    Log.WARN, TAG,
+                    "event=install_hook result=skip code=CSE-SIG-001 id=$id reason=method_not_found"
+                )
+                return
+            }
+
+            methods.forEach { m ->
+                m.isAccessible = true
+                hook(m)
+                    .setId(id)
+                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                    .intercept { chain ->
+                        refreshConfigSilently()
+                        if (!FORCE_NATIVE || !ENABLE_HOT_START_SPLASH) {
+                            return@intercept chain.proceed()
+                        }
+                        val args = chain.args
+                        val original = chain.proceed() as? Int
+                        cseLog(
+                            Log.INFO, TAG,
+                            "event=hot_start_probe id=$id " +
+                                "newTask=${args.getOrNull(1)} taskSwitch=${args.getOrNull(2)} " +
+                                "processRunning=${args.getOrNull(3)} allowSnapshot=${args.getOrNull(4)} " +
+                                "activityCreated=${args.getOrNull(5)} allDrawn=${args.getOrNull(6)} " +
+                                "hasSnapshot=${args.getOrNull(7) != null} original=$original"
+                        )
+                        if (original == AR_STARTING_WINDOW_TYPE_SNAPSHOT) {
+                            cseLog(
+                                Log.INFO, TAG,
+                                "event=hook_hit id=$id decision=force_splash_screen " +
+                                    "original=$original result=$AR_STARTING_WINDOW_TYPE_SPLASH_SCREEN"
+                            )
+                            return@intercept AR_STARTING_WINDOW_TYPE_SPLASH_SCREEN
+                        }
+                        original
+                    }
+            }
+            cseLog(
+                Log.INFO, TAG,
+                "event=install_hook result=ok id=$id target=$className#getStartingWindowType " +
+                    "count=${methods.size} gate=live"
+            )
+        } catch (t: Throwable) {
+            logHookFailure(id, t)
+        }
+    }
+
     
+    // ================================================================ 最小遮罩显示时长
+    //
+    // 推迟点选在 system_server 的 `StartingSurfaceController$StartingSurface#remove(ZZ)`：
+    // 它是系统向 shell 发起移除的**唯一入口**，执行它之后才会构造
+    // StartingWindowRemovalInfo（连同 SurfaceControl/leash）发给 SystemUI。
+    // 在它之前推迟 → 完全不碰 SurfaceControl → 不会有 v145~v147 那种失效句柄的
+    // SystemUI 原生崩溃。
+    //
+    // 切记：shell 侧那条 `removeIfPossible` 路径**绝不能推迟**（见
+    // installForceRevealAnimationHook 的注释）。
+
+    /** 每个遮罩 surface 的创建时刻（弱引用，不算引用计数、不会泄漏）。 */
+    private val splashSurfaceCreatedAt = java.util.WeakHashMap<Any, Long>()
+
+    private fun markSplashSurfaceCreated(surface: Any) {
+        synchronized(splashSurfaceCreatedAt) {
+            splashSurfaceCreatedAt[surface] = android.os.SystemClock.uptimeMillis()
+        }
+    }
+
+    private fun splashSurfaceCreatedAtOf(surface: Any): Long =
+        synchronized(splashSurfaceCreatedAt) { splashSurfaceCreatedAt[surface] } ?: 0L
+
+    private fun forgetSplashSurface(surface: Any) {
+        synchronized(splashSurfaceCreatedAt) { splashSurfaceCreatedAt.remove(surface) }
+    }
+
+    /** system_server 主线程 Handler（懒建，避免类加载期取 Looper）。 */
+    @Volatile
+    private var systemMainHandler: android.os.Handler? = null
+
+    private fun mainHandlerOf(): android.os.Handler? {
+        systemMainHandler?.let { return it }
+        return runCatching {
+            android.os.Handler(android.os.Looper.getMainLooper()).also { systemMainHandler = it }
+        }.getOrNull()
+    }
+
+    /** 沿继承链找字段（只用于日志）。 */
+    private fun fieldUp(cls: Class<*>, name: String): java.lang.reflect.Field? {
+        var c: Class<*>? = cls
+        while (c != null) {
+            val f = runCatching { c!!.getDeclaredField(name).apply { isAccessible = true } }.getOrNull()
+            if (f != null) return f
+            c = c.superclass
+        }
+        return null
+    }
+
+    /** 取遮罩所属 task 的 id（仅用于日志）。 */
+    private fun taskIdOfSurface(surface: Any): Int = runCatching {
+        val task = fieldUp(surface.javaClass, "mTask")?.get(surface) ?: return -1
+        fieldUp(task.javaClass, "mTaskId")?.getInt(task) ?: -1
+    }.getOrDefault(-1)
+
+    private fun installMinSplashHoldHook(cl: ClassLoader) {
+        val cls = runCatching { cl.loadClass(CLS_STARTING_SURFACE) }.getOrNull()
+        if (cls == null) {
+            logHookFailure("min_splash_hold", ClassNotFoundException(CLS_STARTING_SURFACE))
+            return
+        }
+
+        // 基线：surface 构造时刻 ~= 遮罩开始显示的时刻
+        runCatching {
+            val ctor = cls.declaredConstructors.firstOrNull { it.parameterCount == 3 }
+                ?: throw NoSuchMethodException("$CLS_STARTING_SURFACE#<init>(3)")
+            ctor.isAccessible = true
+            hook(ctor)
+                .setId("min_splash_hold_created")
+                .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept { chain ->
+                    runCatching { markSplashSurfaceCreated(chain.thisObject) }
+                    chain.proceed()
+                }
+        }.onFailure { logHookFailure("min_splash_hold_created", it) }
+
+        val removeMethod = cls.declaredMethods.firstOrNull { m ->
+            m.name == "remove" && m.returnType == Void.TYPE && m.parameterCount == 2 &&
+                m.parameterTypes.all { it == Boolean::class.javaPrimitiveType }
+        }
+        if (removeMethod == null) {
+            logHookFailure(
+                "min_splash_hold", NoSuchMethodException("$CLS_STARTING_SURFACE#remove(ZZ)")
+            )
+            return
+        }
+
+        removeMethod.isAccessible = true
+        hook(removeMethod)
+            .setId("min_splash_hold")
+            .setPriority(XposedInterface.PRIORITY_DEFAULT)
+            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                refreshConfigSilently()
+                if (!FORCE_NATIVE || !MIN_SPLASH_SHOW_ENABLED ||
+                    EXIT_ANIM_MODE != EXIT_MODE_DEFAULT
+                ) {
+                    return@intercept chain.proceed()
+                }
+                val surface = chain.thisObject
+                val createdAt = splashSurfaceCreatedAtOf(surface)
+                if (createdAt <= 0L) return@intercept chain.proceed()
+                val age = android.os.SystemClock.uptimeMillis() - createdAt
+                if (age >= MIN_SPLASH_SHOW_MS) {
+                    forgetSplashSurface(surface)
+                    return@intercept chain.proceed()
+                }
+                val handler = mainHandlerOf()
+                if (handler == null) {
+                    forgetSplashSurface(surface)
+                    return@intercept chain.proceed()
+                }
+                val delay = MIN_SPLASH_SHOW_MS - age
+                val a0 = chain.args.getOrNull(0)
+                val a1 = chain.args.getOrNull(1)
+                val taskId = taskIdOfSurface(surface)
+                cseLog(
+                    Log.INFO, TAG,
+                    "event=hook_hit id=min_splash_hold decision=hold task=$taskId " +
+                        "ageMs=$age holdMs=$MIN_SPLASH_SHOW_MS delayMs=$delay"
+                )
+                handler.postDelayed({
+                    runCatching {
+                        forgetSplashSurface(surface)
+                        removeMethod.invoke(surface, a0, a1)
+                    }.onSuccess {
+                        cseLog(
+                            Log.INFO, TAG,
+                            "event=hook_hit id=min_splash_hold decision=release task=$taskId"
+                        )
+                    }.onFailure { t ->
+                        cseLog(
+                            Log.WARN, TAG,
+                            "event=hook_error id=min_splash_hold " +
+                                "reason=release_failed msg=${t.message} task=$taskId"
+                        )
+                    }
+                }, delay)
+                return@intercept null
+            }
+        cseLog(
+            Log.INFO, TAG,
+            "event=install_hook result=ok id=min_splash_hold " +
+                "target=$CLS_STARTING_SURFACE#remove(ZZ)"
+        )
+    }
+
     private fun installSplashViewDecorHook(cl: ClassLoader) {
         try {
             val cls = loadSplashViewBuilderClass(cl)
@@ -2022,16 +2527,22 @@ class CoSSplashModule : XposedModule() {
             addSplashBackgroundImage(view, source)
         }
 
+        if (SHOW_APP_NAME && findTagView(view, TAG_APP_NAME) == null) {
+            addAppName(view, source)
+        }
+
         if (REMOVE_ICON) {
-            val hidden = hideAllIconViews(view)
+            val hidden = hideIconView(view)
             cseLog(
                 Log.INFO, TAG,
-                "event=hook_hit id=remove_icon source=$source decision=hide_all_icons " +
-                    "hiddenCount=$hidden"
+                "event=hook_hit id=remove_icon source=$source decision=hide_icon " +
+                    "hidden=$hidden"
             )
             iconDecorApplied = true
             return
         }
+
+        applyIconOffset(view, source)
 
         if (iconDecorApplied) return
 
@@ -2040,7 +2551,7 @@ class CoSSplashModule : XposedModule() {
             Log.INFO, TAG,
             "event=blur_check source=$source " +
                 "needShrink=$currentIsNeedShrinkIcon " +
-                "morph=$ENABLE_MORPH_SHAPE " +
+                "loadingAnim=$LOADING_ANIM_MODE " +
                 "roundCorner=$DRAW_ROUND_CORNER hasIcon=${currentIconDrawable != null} " +
                 "iconSize=$iconSize childCount=${view.childCount}"
         )
@@ -2050,9 +2561,12 @@ class CoSSplashModule : XposedModule() {
                 drawIconRoundCorner(cl, splashScreenView)
                 iconDecorApplied = true
             }
-            if (ENABLE_MORPH_SHAPE) {
-                if (findTagView(view, TAG_MORPH_SHAPE) == null) {
+            when (LOADING_ANIM_MODE) {
+                LOADING_ANIM_SHAPE -> if (findTagView(view, TAG_MORPH_SHAPE) == null) {
                     addMorphShape(cl, view, source)
+                }
+                LOADING_ANIM_BAR -> if (findTagView(view, TAG_LOADING_BAR) == null) {
+                    addLoadingBar(cl, view, source)
                 }
             }
         }.onFailure {
@@ -2330,17 +2844,20 @@ class CoSSplashModule : XposedModule() {
             val morphView = MorphShapeView(appContext).apply {
                 tag = TAG_MORPH_SHAPE
                 z = -1f
+                // 先隐藏，定位成功后再显示：避免首帧出现在中间再“跳”过去。
+                visibility = View.INVISIBLE
                 setTint(fallback)
             }
-            // 先用 CENTER 挂上去（保证首帧不飞），随后 [alignToIconCenter] 会按图标
+            // 先用 CENTER 挂上去（保证首帧不飞），随后 [alignIndicator] 会按图标
             // 实际位置重设 margin —— 图标不一定在 SplashScreenView 正中。
             splashScreenView.addView(
                 morphView,
                 0,
                 FrameLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER }
             )
-            alignToIconCenter(
-                splashScreenView, morphView, findIconView(splashScreenView), size, what = "morph"
+            alignIndicator(
+                splashScreenView, morphView, findIconView(splashScreenView),
+                size, size, below = false, what = "morph"
             )
 
             cseLog(
@@ -2350,53 +2867,9 @@ class CoSSplashModule : XposedModule() {
                     "childCount=${splashScreenView.childCount}"
             )
 
-            // 跟随应用图标取色：Palette 是**同步**计算，直接跑在主线程会掉帧，
-            // 所以丢到单线程池里算，算完再 post 回主线程染色。
-            //
-            //   1. [iconAccentColor] 内部只在**独立采样位图**上取色，绝不改动原图标
-            //      Drawable 的 bounds（原实现用 drawable2Bitmap 会把 64px bounds 留在
-            //      图标上，图标当场被画坏）；
-            //   2. 后台线程只做纯计算，**不碰任何 View**；染色统一 post 回主线程；
-            //   3. post 前校验视图仍 attach 到窗口，且 Splash 未被新一轮启动替换
-            //      （避免给已 detach / 已回收的旧视图设色）。
+            // 跟随应用图标取色：见 [resolveIconAccentColor] 的说明。
             if (MORPH_SHAPE_COLOR_TYPE == MORPH_COLOR_FROM_ICON) {
-                //   1) currentFinalIconAccentColor —— 由 createIconBitmap 在**最终像素**上
-                //      提前算好（最准，且不受跨生命周期竞态影响）；
-                //   2) 若还没算出来（颜色值尚未回填），退回现算，但采样对象换成
-                //      **最终图标位图** currentIconBitmap（而非 getIconExt 的原始 Drawable）；
-                //   3) 两者都没有才退回原始 Drawable —— 这条路径下取色可能与屏幕略有偏差，
-                //      日志里会明确标注 result=fallback_drawable。
-                //
-                //   原实现只有 (3)，所以「取色偏移」和「有时显示系统颜色」一直存在：
-                //   屏幕上是 createIconBitmap 的产物，采的却是更早一站的原始 Drawable。
-                val cachedColor = currentFinalIconAccentColor
-                val finalBitmap = currentIconBitmap
-                val drawable = currentIconDrawable
-
-                if (cachedColor != null) {
-                    // 已经算好了：主线程直接染色，零延迟、零量化开销
-                    applyMorphTint(morphView, cachedColor, "final_bitmap_cached", fallback)
-                } else if (finalBitmap != null) {
-                    ICON_COLOR_EXECUTOR.execute {
-                        val color = runCatching {
-                            paletteAccentFromBitmap(finalBitmap, isDarkMode(appContext))
-                        }.getOrNull()
-                        applyMorphTint(morphView, color ?: fallback, "final_bitmap", fallback)
-                    }
-                } else if (drawable != null) {
-                    ICON_COLOR_EXECUTOR.execute {
-                        // 后台线程：纯计算，异常一律吞掉，绝不外泄（否则线程池线程死掉）
-                        val color = runCatching {
-                            iconAccentColor(drawable, isDarkMode(appContext))
-                        }.getOrNull()
-                        applyMorphTint(morphView, color ?: fallback, "fallback_drawable", fallback)
-                    }
-                } else {
-                    log(
-                        Log.WARN, TAG,
-                        "event=hook_error id=morph_icon_color reason=icon_drawable_null keep=monet"
-                    )
-                }
+                resolveIconAccentColor(morphView, appContext, fallback) { morphView.setTint(it) }
             }
         }.onFailure {
             log(Log.WARN, TAG, "event=hook_error id=add_morph_shape source=$source", it)
@@ -2404,7 +2877,341 @@ class CoSSplashModule : XposedModule() {
     }
 
     /**
-     * 把颜色应用到几何形变视图上（统一入口，主线程调用）。
+     * 加载条（不确定型）：在图标下方放一条持续「拉伸 → 收缩」的双虫进度条。
+     */
+    private fun addLoadingBar(cl: ClassLoader, splashScreenView: FrameLayout, source: String) {
+        runCatching {
+            val appContext = splashScreenView.context
+            val density = appContext.resources.displayMetrics.density
+            val width = (LOADING_BAR_LENGTH * density).toInt().coerceAtLeast(1)
+            val height = (LOADING_BAR_THICKNESS * density).toInt().coerceAtLeast(1)
+
+            val fallback = monetTint(appContext)
+            val barView = LoadingBarView(appContext).apply {
+                tag = TAG_LOADING_BAR
+                z = -1f
+                // 先隐藏，定位成功后再显示：避免首帧出现在中间再“跳”过去。
+                visibility = View.INVISIBLE
+                setTint(fallback)
+            }
+            // 先用 CENTER 挂上去（保证首帧不飞），随后 [alignIndicator] 按图标位置重排。
+            splashScreenView.addView(
+                barView,
+                0,
+                FrameLayout.LayoutParams(width, height).apply { gravity = Gravity.CENTER }
+            )
+            alignIndicator(
+                splashScreenView, barView, findIconView(splashScreenView),
+                width, height, below = true, what = "loading_bar"
+            )
+
+            cseLog(
+                Log.INFO, TAG,
+                "event=hook_hit id=add_loading_bar source=$source length=$LOADING_BAR_LENGTH " +
+                    "thickness=$LOADING_BAR_THICKNESS size=${width}x$height " +
+                    "colorType=$MORPH_SHAPE_COLOR_TYPE childCount=${splashScreenView.childCount}"
+            )
+
+            if (MORPH_SHAPE_COLOR_TYPE == MORPH_COLOR_FROM_ICON) {
+                resolveIconAccentColor(barView, appContext, fallback) { barView.setTint(it) }
+            }
+        }.onFailure {
+            log(Log.WARN, TAG, "event=hook_error id=add_loading_bar source=$source", it)
+        }
+    }
+
+    /**
+     * 在启动遮罩上显示应用名称。默认水平居中于图标中心、垂直放在图标下方
+     * [APP_NAME_GAP_DP] dp，可通过 [APP_NAME_OFFSET_X] / [APP_NAME_OFFSET_Y] 微调。
+     */
+    private fun addAppName(splashScreenView: FrameLayout, source: String) {
+        runCatching {
+            val appContext = splashScreenView.context
+            val label = appLabel(appContext)
+            if (label.isEmpty()) return
+
+            val fallback = monetTint(appContext)
+            val tv = TextView(appContext).apply {
+                tag = TAG_APP_NAME
+                text = label
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, APP_NAME_TEXT_SIZE.toFloat())
+                setTextColor(fallback)
+                typeface = appNameTypeface(appContext)
+                gravity = Gravity.CENTER
+                // 先隐藏，定位成功后再显示：避免首帧出现在中间再“跳”过去。
+                visibility = View.INVISIBLE
+            }
+            splashScreenView.addView(
+                tv,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).apply { gravity = Gravity.CENTER }
+            )
+            val branding = findBrandingView(splashScreenView)
+            val iconForAlign = if (REMOVE_ICON) null else findIconView(splashScreenView)
+            alignAppName(splashScreenView, tv, branding, iconForAlign, "app_name")
+
+            cseLog(
+                Log.INFO, TAG,
+                "event=hook_hit id=add_app_name source=$source label=$label " +
+                    "textSize=$APP_NAME_TEXT_SIZE colorType=$APP_NAME_COLOR_TYPE"
+            )
+
+            when (APP_NAME_COLOR_TYPE) {
+                APP_NAME_COLOR_FROM_ICON ->
+                    resolveIconAccentColor(tv, appContext, fallback) { tv.setTextColor(it) }
+
+                APP_NAME_COLOR_CUSTOM ->
+                    tv.setTextColor(parseColorOrNull(APP_NAME_CUSTOM_COLOR) ?: fallback)
+
+                // 跟随系统：已用 monetTint 作初始色
+            }
+        }.onFailure {
+            log(Log.WARN, TAG, "event=hook_error id=add_app_name source=$source", it)
+        }
+    }
+
+    /**
+     * 摆放应用名称。默认位置 = **原品牌图（branding image）所在位置**（与之同心）；
+     * 没有品牌图时回落到图标下方，再没有则屏幕中心。
+     * 用 translation 相对“父容器居中”偏移（TextView 是 WRAP_CONTENT，不便直接算 margin）。
+     */
+    private fun alignAppName(
+        parent: FrameLayout,
+        target: View,
+        brandingView: View?,
+        iconView: View?,
+        what: String
+    ) {
+        val density = parent.resources.displayMetrics.density
+        val gap = APP_NAME_GAP_DP * density
+        val bottomMargin = APP_NAME_BOTTOM_MARGIN_DP * density
+        val dx = APP_NAME_OFFSET_X * density
+        // dp 为正 = 向上偏移（屏幕 Y 轴向下为正，故取负）。
+        val dy = -APP_NAME_OFFSET_Y * density
+
+        fun applyAlign(why: String): Boolean = runCatching {
+            if (parent.width <= 0 || parent.height <= 0) return false
+            val parentLoc = IntArray(2)
+            parent.getLocationOnScreen(parentLoc)
+            val parentCenterX = parent.width / 2f
+            val parentCenterY = parent.height / 2f
+
+            var cx = parentCenterX
+            var cy = parentCenterY
+            if (APP_NAME_POSITION == APP_NAME_POS_BELOW_ICON) {
+                // 图标正下方
+                if (iconView != null && iconView.width > 0 && iconView.height > 0) {
+                    val loc = IntArray(2)
+                    iconView.getLocationOnScreen(loc)
+                    cx = loc[0] - parentLoc[0] + iconView.width / 2f
+                    cy = loc[1] - parentLoc[1] + iconView.height + gap
+                }
+            } else {
+                // 底部：优先对齐品牌图（原品牌图位置），否则屏幕底部居中
+                if (brandingView != null && brandingView.width > 0 && brandingView.height > 0) {
+                    val loc = IntArray(2)
+                    brandingView.getLocationOnScreen(loc)
+                    cx = loc[0] - parentLoc[0] + brandingView.width / 2f
+                    cy = loc[1] - parentLoc[1] + brandingView.height / 2f
+                } else {
+                    cy = parent.height - bottomMargin - target.height / 2f
+                }
+            }
+            target.translationX = cx - parentCenterX + dx
+            target.translationY = cy - parentCenterY + dy
+            target.visibility = if (exitAnimating) View.INVISIBLE else View.VISIBLE
+            true
+        }.getOrDefault(false)
+
+        val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            runCatching { applyAlign("layout_change") }
+        }
+        val anchor = brandingView ?: iconView
+        anchor?.addOnLayoutChangeListener(layoutListener)
+        target.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {}
+            override fun onViewDetachedFromWindow(v: View) {
+                if (anchor != null) {
+                    runCatching { anchor.removeOnLayoutChangeListener(layoutListener) }
+                }
+            }
+        })
+
+        val observer = parent.viewTreeObserver
+        if (!observer.isAlive) return
+        var tries = 0
+        observer.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                tries++
+                val ok = runCatching { applyAlign("predraw") }.getOrDefault(false)
+                if (ok || tries >= 10) {
+                    runCatching { parent.viewTreeObserver.removeOnPreDrawListener(this) }
+                    if (!ok) {
+                        cseLog(
+                            Log.INFO, TAG,
+                            "event=hook_hit id=align_app_name target=$what " +
+                                "reason=not_laid_out keep=center"
+                        )
+                        if (!exitAnimating) target.visibility = View.VISIBLE
+                    }
+                }
+                return true
+            }
+        })
+    }
+
+    /** 反射取品牌图视图（AOSP: SplashScreenView#mBrandingImageView）。 */
+    private fun findBrandingView(splashScreenView: View): View? {
+        runCatching {
+            var v: Class<*>? = splashScreenView.javaClass
+            while (v != null && v != View::class.java) {
+                val f = runCatching { v!!.getDeclaredField("mBrandingImageView") }.getOrNull()
+                if (f != null) {
+                    f.isAccessible = true
+                    val view = f.get(splashScreenView) as? View
+                    if (view != null) return view
+                }
+                v = v.superclass
+            }
+        }
+        return null
+    }
+
+    /** 解析 "#RRGGBB" / "#AARRGGBB"；失败返回 null。 */
+    private fun parseColorOrNull(hex: String): Int? =
+        runCatching { Color.parseColor(hex) }.getOrNull()
+
+    /**
+     * 取被启动应用的名称。开了「使用英语」且应用提供英语资源时用英语，否则回落默认。
+     */
+    private fun appLabel(appContext: android.content.Context): String {
+        val pm = appContext.packageManager
+        val appInfo = runCatching {
+            pm.getApplicationInfo(appContext.packageName, 0)
+        }.getOrNull() ?: return ""
+        val fallback = runCatching { pm.getApplicationLabel(appInfo).toString() }
+            .getOrNull().orEmpty()
+        if (!APP_NAME_USE_ENGLISH) return fallback
+        //   用应用的 Resources + 英语 Configuration “另建”一份，取英语标签；
+        //   应用没做英语翻译时它会自然回落到默认值。
+        return runCatching {
+            val baseRes = pm.getResourcesForApplication(appInfo)
+            val conf = Configuration(baseRes.configuration).apply { setLocale(Locale.ENGLISH) }
+            val enRes = android.content.res.Resources(baseRes.assets, baseRes.displayMetrics, conf)
+            if (appInfo.labelRes != 0) enRes.getText(appInfo.labelRes).toString() else null
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: fallback
+    }
+
+    /** 应用名称字体：自定义 ttf（若有）叠加用户选的粗细。 */
+    private fun appNameTypeface(appContext: android.content.Context): Typeface {
+        val base = loadCustomFont(appContext) ?: Typeface.DEFAULT
+        val weight = APP_NAME_FONT_WEIGHT.coerceIn(100, 900)
+        return runCatching { Typeface.create(base, weight, false) }.getOrDefault(base)
+    }
+
+    /** 载入用户选的自定义字体：先读 SystemUI 缓存，未命中再从 App 的 Provider 拉一份。 */
+    private fun loadCustomFont(appContext: android.content.Context): Typeface? {
+        if (APP_NAME_FONT_NAME.isEmpty()) return null
+        val ctx = hostAppContext() ?: appContext
+        val file = cachedFontFile(ctx) ?: run {
+            val bytes = providerFontBytes(ctx) ?: return null
+            refreshFontCache(ctx, bytes)
+            cachedFontFile(ctx)
+        } ?: return null
+        return runCatching { Typeface.createFromFile(file) }.getOrNull()
+    }
+
+    private fun fontCacheFile(ctx: android.content.Context): java.io.File =
+        java.io.File(ctx.filesDir, FONT_CACHE_FILE)
+
+    private fun fontCacheVersionFile(ctx: android.content.Context): java.io.File =
+        java.io.File(ctx.filesDir, FONT_CACHE_VERSION_FILE)
+
+    /** 读 SystemUI 本地字体缓存（仅当旁路版本文件与当前版本一致时）。 */
+    private fun cachedFontFile(ctx: android.content.Context): java.io.File? = runCatching {
+        val f = fontCacheFile(ctx)
+        val vf = fontCacheVersionFile(ctx)
+        if (!f.exists() || !vf.exists()) return@runCatching null
+        val ver = vf.readText().trim().toLongOrNull() ?: return@runCatching null
+        if (ver != APP_NAME_FONT_VERSION) return@runCatching null
+        f
+    }.getOrNull()
+
+    /** 从模块 App 的 ContentProvider 读字体字节（App 被杀 / 未启动时为 null）。 */
+    private fun providerFontBytes(ctx: android.content.Context): ByteArray? = runCatching {
+        val pkg = getModuleApplicationInfo().packageName
+        ctx.contentResolver.openInputStream(AppNameFontStore.contentUri(pkg))?.use { it.readBytes() }
+    }.getOrNull()
+
+    /** 把字体字节写进 SystemUI 缓存（尽力而为，失败不影响显示）。 */
+    private fun refreshFontCache(ctx: android.content.Context, bytes: ByteArray) {
+        runCatching {
+            fontCacheFile(ctx).writeBytes(bytes)
+            fontCacheVersionFile(ctx).writeText(APP_NAME_FONT_VERSION.toString())
+            cseLog(
+                Log.INFO, TAG,
+                "event=font_cache result=ok size=${bytes.size} ver=$APP_NAME_FONT_VERSION"
+            )
+        }.onFailure {
+            log(Log.WARN, TAG, "event=font_cache result=fail", it)
+        }
+    }
+
+    /**
+     * 解析「跟随应用图标取色」的最终颜色，并交给 [applyIndicatorTint] 染色。
+     *
+     * 取色优先级：
+     *   1) [currentFinalIconAccentColor] —— 由 createIconBitmap 在**最终像素**上提前
+     *      算好（最准，且不受跨生命周期竞态影响）；
+     *   2) 若还没算出来（颜色值尚未回填），退回现算，采样对象用**最终图标位图**
+     *      [currentIconBitmap]（而非 getIconExt 的原始 Drawable）；
+     *   3) 两者都没有才退回原始 Drawable —— 这条路径下取色可能与屏幕略有偏差，
+     *      日志里会明确标注 result=fallback_drawable。
+     *
+     * Palette 量化是 CPU 密集型，绝不能在主线程跑，所以后两条路径丢到
+     * [ICON_COLOR_EXECUTOR]，算完 [applyIndicatorTint] 会 post 回主线程染色。
+     */
+    private fun resolveIconAccentColor(
+        target: View,
+        appContext: android.content.Context,
+        fallback: Int,
+        setTint: (Int) -> Unit
+    ) {
+        val cachedColor = currentFinalIconAccentColor
+        val finalBitmap = currentIconBitmap
+        val drawable = currentIconDrawable
+
+        when {
+            cachedColor != null ->
+                // 已经算好了：主线程直接染色，零延迟、零量化开销
+                applyIndicatorTint(target, cachedColor, "final_bitmap_cached", fallback, setTint)
+
+            finalBitmap != null -> ICON_COLOR_EXECUTOR.execute {
+                val color = runCatching {
+                    paletteAccentFromBitmap(finalBitmap, isDarkMode(appContext))
+                }.getOrNull()
+                applyIndicatorTint(target, color ?: fallback, "final_bitmap", fallback, setTint)
+            }
+
+            drawable != null -> ICON_COLOR_EXECUTOR.execute {
+                // 后台线程：纯计算，异常一律吞掉，绝不外泄（否则线程池线程死掉）
+                val color = runCatching {
+                    iconAccentColor(drawable, isDarkMode(appContext))
+                }.getOrNull()
+                applyIndicatorTint(target, color ?: fallback, "fallback_drawable", fallback, setTint)
+            }
+
+            else -> log(
+                Log.WARN, TAG,
+                "event=hook_error id=indicator_icon_color reason=icon_drawable_null keep=monet"
+            )
+        }
+    }
+
+    /**
+     * 把颜色应用到指示器视图上（统一入口，主线程调用）。
      *
      * 抽出这个方法的理由：取色有「缓存命中 / 位图现算 / 退回 Drawable」三条路径，
      * 三条都要做同样的事 —— post 回主线程 + attach 校验 + 吞掉异常 + 打日志。
@@ -2413,30 +3220,32 @@ class CoSSplashModule : XposedModule() {
      * @param color    最终颜色（调用方已保证非 null，取色失败时传 fallback）
      * @param source   取色来源标记，只用于日志定位
      * @param fallback 兜底色，用于区分「真取到了」还是「回落莫奈」
+     * @param setTint  实际染色动作（几何色块 / 加载条各自的 setTint）
      */
-    private fun applyMorphTint(
-        morphView: MorphShapeView,
+    private fun applyIndicatorTint(
+        target: View,
         color: Int,
         source: String,
-        fallback: Int
+        fallback: Int,
+        setTint: (Int) -> Unit
     ) {
         runCatching {
-            morphView.post {
+            target.post {
                 runCatching {
                     // 视图必须仍挂在窗口上，否则 setTint 的 invalidate 无意义
                     // （极端情况下视图已 detach，留着也不报错，但白干）
-                    if (!morphView.isAttachedToWindow) {
+                    if (!target.isAttachedToWindow) {
                         log(
                             Log.WARN, TAG,
-                            "event=hook_error id=morph_icon_color " +
+                            "event=hook_error id=indicator_icon_color " +
                                 "reason=detached source=$source keep=monet"
                         )
                         return@runCatching
                     }
-                    morphView.setTint(color)
+                    setTint(color)
                     cseLog(
                         Log.INFO, TAG,
-                        "event=hook_hit id=morph_icon_color " +
+                        "event=hook_hit id=indicator_icon_color " +
                             "source=$source " +
                             "result=${if (color == fallback) "fallback_monet" else "ok"} " +
                             "color=#${Integer.toHexString(color)}"
@@ -2444,7 +3253,34 @@ class CoSSplashModule : XposedModule() {
                 }
             }
         }.onFailure {
-            log(Log.WARN, TAG, "event=hook_error id=morph_icon_color reason=post_failed source=$source")
+            log(
+                Log.WARN, TAG,
+                "event=hook_error id=indicator_icon_color reason=post_failed source=$source"
+            )
+        }
+    }
+
+    /**
+     * 图标位移：把 SplashScreenView 上的应用图标平移用户设定的偏移量。
+     *
+     * 指示器对齐时读的是图标的 on-screen 位置（含 translation），因此图标位移后
+     * 指示器会跟着走，再叠加自身的 [INDICATOR_OFFSET_X] / [INDICATOR_OFFSET_Y]。
+     */
+    private fun applyIconOffset(splashScreenView: FrameLayout, source: String) {
+        runCatching {
+            val icon = findIconView(splashScreenView) ?: return
+            val density = splashScreenView.resources.displayMetrics.density
+            val dx = ICON_OFFSET_X * density
+            val dy = -ICON_OFFSET_Y * density
+            if (icon.translationX == dx && icon.translationY == dy) return
+            icon.translationX = dx
+            icon.translationY = dy
+            cseLog(
+                Log.INFO, TAG,
+                "event=hook_hit id=icon_offset source=$source dx=$dx dy=$dy"
+            )
+        }.onFailure {
+            log(Log.WARN, TAG, "event=hook_error id=icon_offset source=$source", it)
         }
     }
 
@@ -2477,20 +3313,28 @@ class CoSSplashModule : XposedModule() {
     }
 
     
-    private fun alignToIconCenter(
+    private fun alignIndicator(
         parent: FrameLayout,
         target: View,
         iconView: View?,
-        size: Int,
+        width: Int,
+        height: Int,
+        below: Boolean,
         what: String
     ) {
         if (iconView == null) {
             cseLog(
                 Log.INFO, TAG,
-                "event=hook_hit id=align_icon target=$what reason=icon_view_null keep=center"
+                "event=hook_hit id=align_indicator target=$what reason=icon_view_null keep=center"
             )
+            target.visibility = View.VISIBLE
             return
         }
+
+        val density = parent.resources.displayMetrics.density
+        val gap = (BELOW_ICON_GAP_DP * density).toInt()
+        val dx = (INDICATOR_OFFSET_X * density).toInt()
+        val dy = (-INDICATOR_OFFSET_Y * density).toInt()
 
         /** 按图标当前位置重设 target 的 margin。返回是否成功定位。 */
         fun applyAlign(why: String): Boolean = runCatching {
@@ -2502,27 +3346,35 @@ class CoSSplashModule : XposedModule() {
             iconView.getLocationOnScreen(iconLoc)
 
             val cx = iconLoc[0] - parentLoc[0] + iconView.width / 2f
-            val cy = iconLoc[1] - parentLoc[1] + iconView.height / 2f
+            val iconTop = iconLoc[1] - parentLoc[1]
 
-            // 夹到 parent 范围内，防止极端布局算出负数 margin 导致视图飞出
-            val left = kotlin.math.round(cx - size / 2f).toInt()
-            val top = kotlin.math.round(cy - size / 2f).toInt()
+            // below = true：水平对齐图标中心、垂直放到图标下方 [BELOW_ICON_GAP_DP] dp（加载条）；
+            // below = false：完全居中于图标中心（几何色块）。
+            // 最后叠加用户的指示器位移。
+            val left = kotlin.math.round(cx - width / 2f).toInt() + dx
+            val top = if (below) {
+                kotlin.math.round((iconTop + iconView.height + gap).toFloat()).toInt() + dy
+            } else {
+                kotlin.math.round(iconTop + iconView.height / 2f - height / 2f).toInt() + dy
+            }
 
             val lp = target.layoutParams as? FrameLayout.LayoutParams
             if (lp != null && lp.gravity == (Gravity.TOP or Gravity.LEFT) &&
-                lp.leftMargin == left && lp.topMargin == top && lp.width == size && lp.height == size
+                lp.leftMargin == left && lp.topMargin == top &&
+                lp.width == width && lp.height == height
             ) {
                 return true // 没变化，避免无谓的 requestLayout
             }
-            target.layoutParams = FrameLayout.LayoutParams(size, size).apply {
+            target.layoutParams = FrameLayout.LayoutParams(width, height).apply {
                 gravity = Gravity.TOP or Gravity.LEFT
                 leftMargin = left
                 topMargin = top
             }
+            target.visibility = if (exitAnimating) View.INVISIBLE else View.VISIBLE
             cseLog(
                 Log.INFO, TAG,
-                "event=hook_hit id=align_icon target=$what why=$why cx=$cx cy=$cy size=$size " +
-                    "parentWH=${parent.width}x${parent.height} " +
+                "event=hook_hit id=align_indicator target=$what why=$why left=$left top=$top " +
+                    "size=${width}x$height parentWH=${parent.width}x${parent.height} " +
                     "iconWH=${iconView.width}x${iconView.height}"
             )
             true
@@ -2554,9 +3406,10 @@ class CoSSplashModule : XposedModule() {
                     if (!ok) {
                         cseLog(
                             Log.INFO, TAG,
-                            "event=hook_hit id=align_icon target=$what " +
+                            "event=hook_hit id=align_indicator target=$what " +
                                 "reason=icon_not_laid_out keep=center"
                         )
+                        if (!exitAnimating) target.visibility = View.VISIBLE
                     }
                 }
                 return true
@@ -2696,29 +3549,18 @@ class CoSSplashModule : XposedModule() {
     }.getOrNull()
 
     /**
-     * 移除图标：递归隐藏 SplashScreenView 上所有 ImageView（应用图标 + 品牌图）。
+     * 移除图标：只隐藏 SplashScreenView 上的**应用图标**（由 [findIconView] 定位）。
      *
-     * 只隐藏 ImageView，不动 View 的背景色 —— 因此背景遮罩颜色仍然正常渲染，
-     * 也不会影响"关闭截图覆盖"（那是清 mSplashScreenIcon / mBrandingImage 字段）。
+     * 不再像旧实现那样递归隐藏所有 ImageView —— 那会把底部品牌图一并隐藏，
+     * 与「移除底部图片」（清 mBrandingImage）职责重叠。现在两者互相独立。
      *
-     * @return 被隐藏的 View 数量
+     * @return 是否真的隐藏了图标
      */
-    private fun hideAllIconViews(view: View): Int {
-        var count = 0
-        if (view is ImageView) {
-            if (view.visibility != View.GONE) {
-                view.visibility = View.GONE
-                count++
-            }
-            return count
-        }
-        if (view is android.view.ViewGroup) {
-            for (i in 0 until view.childCount) {
-                val child = view.getChildAt(i) ?: continue
-                count += hideAllIconViews(child)
-            }
-        }
-        return count
+    private fun hideIconView(splashScreenView: View): Boolean {
+        val icon = findIconView(splashScreenView) ?: return false
+        if (icon.visibility == View.GONE) return false
+        icon.visibility = View.GONE
+        return true
     }
 
     
@@ -2990,6 +3832,9 @@ class CoSSplashModule : XposedModule() {
         iconReplaced = false
         iconStateDecided = false
         iconDecorApplied = false
+        // 上一轮粒子退出置的标记必须在这里清掉，否则之后每一轮的装饰层
+        // （加载指示器 / 应用名称）都会因为“正在退出”而被永久隐藏。
+        exitAnimating = false
         mTmpAttrsInstance = null
     }
 
@@ -3094,6 +3939,7 @@ class CoSSplashModule : XposedModule() {
                     .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
                     .intercept { chain ->
                         refreshConfigSilently()
+                        // 自定义粒子模式：整屏粒子接管退出动画
                         if (FORCE_NATIVE && EXIT_ANIM_MODE != EXIT_MODE_DEFAULT) {
                             val args = chain.args
                             val host = args.getOrNull(1) as? ViewGroup
@@ -3117,6 +3963,130 @@ class CoSSplashModule : XposedModule() {
             )
         } catch (t: Throwable) {
             logHookFailure("exit_particle", t)
+        }
+    }
+
+    /**
+     * 探针：记录 `applyExitAnimation` 被调用时“遮罩已显示多久”。
+     *
+     * ⚠️ 这里**只打日志，不做任何推迟**。曾经在这里用 `postDelayed` 延后调用以实现
+     * “最小遮罩显示时长”，结果推迟路径没能走完移除流程，**所有应用都卡在遮罩上**，已回滚。
+     */
+    private fun installExitAnimProbe(cl: ClassLoader) {
+        try {
+            val cls = cl.loadClass(CLS_CONTENT_DRAWER)
+            val methods = cls.declaredMethods.filter {
+                it.name == "applyExitAnimation" && it.parameterCount == 6
+            }
+            if (methods.isEmpty()) {
+                log(Log.WARN, TAG, "event=install_hook result=skip code=CSE-SIG-001 id=exit_anim_delay")
+                return
+            }
+            methods.forEach { m ->
+                m.isAccessible = true
+                hook(m)
+                    .setId("exit_anim_delay")
+                    .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                    .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                    .intercept { chain ->
+                        refreshConfigSilently()
+                        val args = chain.args
+                        // 探针：记录遮罩已显示多久（供后续实现“最小显示时长”时定位用）。
+                        //
+                        // ⚠️ 曾尝试在这里 `postDelayed` 延后 applyExitAnimation 实现“最小显示时长”，
+                        //    结果**所有应用都卡在遮罩上**（推迟路径没能走完移除流程）。已回滚：
+                        //    这里**只有日志，始终原样执行**，不再做任何推迟。
+                        runCatching {
+                            val createTime = (args.getOrNull(4) as? Long) ?: 0L
+                            cseLog(
+                                Log.INFO, TAG,
+                                "event=exit_anim_probe id=apply_exit_animation " +
+                                    "ageMs=${android.os.SystemClock.uptimeMillis() - createTime} " +
+                                    "holdEnabled=$MIN_SPLASH_SHOW_ENABLED " +
+                                    "holdMs=$MIN_SPLASH_SHOW_MS"
+                            )
+                        }
+                        chain.proceed()
+                    }
+            }
+            cseLog(
+                Log.INFO, TAG,
+                "event=install_hook result=ok id=exit_anim_delay " +
+                    "target=applyExitAnimation count=${methods.size}"
+            )
+        } catch (t: Throwable) {
+            logHookFailure("exit_anim_delay", t)
+        }
+    }
+
+    /**
+     * 强制播退出动画：让 shell 在移除遮罩时真的走 `applyExitAnimation`（ripple / 粒子）。
+     *
+     * 逆向 SystemUI 得到：`SplashscreenWindowCreator$SplashWindowRecord#removeIfPossible`
+     * 只有在 `StartingWindowRemovalInfo.playRevealAnimation == true` 时才会调
+     * `SplashscreenContentDrawer#applyExitAnimation`；否则直接移除窗口（表现就是“硬切”）。
+     * 该字段由 system_server 依据显示/旋转等条件算出来，热启动时经常是 false ——
+     * 所以在 before 阶段直接把它置 true。
+     */
+    private fun installForceRevealAnimationHook(cl: ClassLoader) {
+        val targets = listOf(
+            "com.android.wm.shell.startingsurface.SplashscreenWindowCreator\$SplashWindowRecord",
+            "com.android.wm.shell.startingsurface.WindowlessSplashWindowCreator\$SplashWindowRecord"
+        )
+        targets.forEach { clsName ->
+            try {
+                val cls = cl.loadClass(clsName)
+                val methods = cls.declaredMethods.filter { m ->
+                    m.name == "removeIfPossible" && m.parameterCount == 2 &&
+                        m.parameterTypes[0].name == "android.window.StartingWindowRemovalInfo"
+                }
+                if (methods.isEmpty()) {
+                    log(
+                        Log.WARN, TAG,
+                        "event=install_hook result=skip code=CSE-SIG-001 " +
+                            "id=force_reveal_anim target=$clsName"
+                    )
+                    return@forEach
+                }
+                val fReveal = runCatching {
+                    methods[0].parameterTypes[0].getDeclaredField("playRevealAnimation")
+                        .apply { isAccessible = true }
+                }.getOrNull()
+                methods.forEach { m ->
+                    m.isAccessible = true
+                    hook(m)
+                        .setId("force_reveal_anim")
+                        .setPriority(XposedInterface.PRIORITY_DEFAULT)
+                        .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
+                        .intercept { chain ->
+                            refreshConfigSilently()
+                            if (FORCE_NATIVE && fReveal != null) {
+                                val info = chain.args.getOrNull(0)
+                                if (info != null) {
+                                    runCatching {
+                                        if (!fReveal.getBoolean(info)) {
+                                            fReveal.setBoolean(info, true)
+                                            cseLog(
+                                                Log.INFO, TAG,
+                                                "event=hook_hit id=force_reveal_anim " +
+                                                    "target=${clsName.substringAfterLast('$')} " +
+                                                    "playRevealAnimation=false -> true"
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            chain.proceed()
+                        }
+                }
+                cseLog(
+                    Log.INFO, TAG,
+                    "event=install_hook result=ok id=force_reveal_anim target=$clsName " +
+                        "count=${methods.size} field=${fReveal != null}"
+                )
+            } catch (t: Throwable) {
+                logHookFailure("force_reveal_anim", t)
+            }
         }
     }
 
@@ -3170,6 +4140,7 @@ class CoSSplashModule : XposedModule() {
             )
 
             // 2) 隐藏原内容 + 去掉背景色，屏幕上只剩粒子。
+            exitAnimating = true
             runCatching {
                 host.background = null
                 for (i in 0 until host.childCount) {
@@ -3249,6 +4220,9 @@ class CoSSplashModule : XposedModule() {
                         val mapped = transform(original)
                         if (mapped != original) {
                             cseLog(Log.INFO, TAG, "event=hook_hit id=$id label=$label original=$original decision=force_native -> $mapped")
+                        } else {
+                            // 探针：没改变也要记一笔，否则看不出该入口是否命中、原值是多少。
+                            cseLog(Log.INFO, TAG, "event=type_probe id=$id label=$label original=$original keep")
                         }
                         mapped
                     }

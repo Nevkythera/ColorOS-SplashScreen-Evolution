@@ -3,6 +3,7 @@ package com.Nevkythera.ColorOSSplashScreenEvolution.ui.navgation
 
 enum class Destination(val route: String) {
     ICON(route = "icon"),
+    BOTTOM(route = "bottom"),
     BACKGROUND(route = "background"),
     ANIMATION(route = "animation"),
     MISC(route = "misc");

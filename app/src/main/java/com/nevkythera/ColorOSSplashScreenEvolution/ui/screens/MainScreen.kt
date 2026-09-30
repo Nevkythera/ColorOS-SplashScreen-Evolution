@@ -631,6 +631,18 @@ private fun SettingPage(
                         }
                     )
                 }
+                entry("feature_bottom") { shape ->
+                    OptionWidget(
+                        modifier = Modifier.clip(shape),
+                        iconRes = R.drawable.dock_to_bottom_filled,
+                        title = stringResource(R.string.feature_bottom),
+                        description = stringResource(R.string.feature_bottom_desc),
+                        enabled = masterEnabled,
+                        onClick = {
+                            PanelActivity.start(context, Destination.BOTTOM)
+                        }
+                    )
+                }
                 entry("feature_background") { shape ->
                     OptionWidget(
                         modifier = Modifier.clip(shape),
@@ -751,6 +763,14 @@ private fun AboutPage(modifier: Modifier) {
                         title = stringResource(R.string.coolapk_homepage),
                         description = COOLAPK_URL,
                         onClick = { openCoolapk(context, COOLAPK_URL) }
+                    )
+                }
+                entry("telegram_group") {
+                    OptionWidget(
+                        iconRes = R.drawable.telegram,
+                        title = stringResource(R.string.telegram_group),
+                        description = stringResource(R.string.telegram_group_desc),
+                        onClick = { openUrl(context, TELEGRAM_URL) }
                     )
                 }
                 entry("donate") {
@@ -959,6 +979,7 @@ private fun AboutHero(
 
 private const val AUTHOR_NAME = "云屿沫辰"
 private const val COOLAPK_URL = "https://www.coolapk.com/u/39292342"
+private const val TELEGRAM_URL = "https://t.me/+TZvToaS3UlBhZWUx"
 
 /** 酷安包名们：优先拉起酷安客户端打开链接，失败则回退到系统浏览器。 */
 private val COOLAPK_PACKAGES = listOf(

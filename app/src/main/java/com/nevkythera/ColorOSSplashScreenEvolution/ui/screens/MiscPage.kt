@@ -16,6 +16,7 @@ import com.Nevkythera.ColorOSSplashScreenEvolution.R
 import com.Nevkythera.ColorOSSplashScreenEvolution.data.ConfigStore
 import com.Nevkythera.ColorOSSplashScreenEvolution.data.CseConfig
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.page.BasePanelPage
+import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.NumberFieldWidget
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SplicedColumnGroup
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.StableEntry
 import com.Nevkythera.ColorOSSplashScreenEvolution.ui.widget.SwitchWidget
@@ -56,6 +57,41 @@ fun MiscPage(
                             onCheckedChange = {
                                 store.setEnableHotStartSplash(it)
                                 onConfigChange(config.copy(enableHotStartSplash = it))
+                            }
+                        )
+                    },
+                    StableEntry("min_splash_show") {
+                        SwitchWidget(
+                            iconRes = R.drawable.animation,
+                            title = stringResource(R.string.min_splash_show),
+                            description = stringResource(R.string.min_splash_show_desc),
+                            checked = config.minSplashShowEnabled,
+                            enabled = masterEnabled,
+                            onCheckedChange = {
+                                store.setMinSplashShowEnabled(it)
+                                onConfigChange(config.copy(minSplashShowEnabled = it))
+                            }
+                        )
+                    },
+                    StableEntry(
+                        "min_splash_show_ms",
+                        visible = config.minSplashShowEnabled
+                    ) {
+                        NumberFieldWidget(
+                            iconRes = R.drawable.animation,
+                            title = stringResource(R.string.min_splash_show_ms),
+                            description = stringResource(R.string.min_splash_show_ms_desc),
+                            value = config.minSplashShowMs,
+                            unit = "ms",
+                            minValue = CseConfig.MIN_SPLASH_SHOW_MS_MIN,
+                            maxValue = CseConfig.MIN_SPLASH_SHOW_MS_MAX,
+                            warnAbove = CseConfig.MIN_SPLASH_SHOW_WARN_ABOVE,
+                            warnTitle = stringResource(R.string.min_splash_show_warn_title),
+                            warnMessage = stringResource(R.string.min_splash_show_warn_message),
+                            enabled = masterEnabled,
+                            onValueChange = {
+                                store.setMinSplashShowMs(it)
+                                onConfigChange(config.copy(minSplashShowMs = it))
                             }
                         )
                     }

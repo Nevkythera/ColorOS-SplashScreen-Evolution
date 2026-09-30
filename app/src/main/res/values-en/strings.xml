@@ -15,7 +15,7 @@
     - 指示器          -> "indicator"
 -->
 <resources>
-    <string name="app_name">COS SplashScreen Evolution</string>
+    <string name="app_name">CSE</string>
     <string name="module_name">COS SplashScreen Evolution</string>
     <string name="module_description">Customize the Splash Screen on ColorOS</string>
 
@@ -23,7 +23,7 @@
     <string name="activated">Activated</string>
     <string name="module_not_activated">Module not activated</string>
     <string name="root_not_available">Root access unavailable</string>
-    <string name="activation_hint">Enable this module in LSPosed and select the following scopes: com.android.systemui and System Framework (android)</string>
+    <string name="activation_hint">Enable this module in LSPosed and select the following scopes: com.android.systemui and System Framework</string>
 
     <!-- Group titles -->
     <string name="group_app_config">App configuration</string>
@@ -34,6 +34,7 @@
     <string name="group_device_info">Device information</string>
     <string name="group_general">General</string>
     <string name="group_personalize">Personalization</string>
+    <string name="group_branding">Branding image</string>
     <string name="group_credits">Credits</string>
 
     <!-- Bottom tabs -->
@@ -53,12 +54,14 @@
     <!-- Module features -->
     <string name="force_native_sc">Master switch</string>
     <string name="force_native_sc_desc">Force the use of the native Android SplashScreen API</string>
-    <string name="disable_snapshot_overlay">Disable snapshot overlay</string>
-    <string name="disable_snapshot_overlay_desc">Ignore the app\'s built-in launch image and show the system\'s native large icon instead</string>
+    <string name="disable_snapshot_overlay">Ignore the app icon</string>
+    <string name="disable_snapshot_overlay_desc">Ignore the app-provided splash icon or animation and use the system\'s native large icon</string>
 
     <!-- Feature entries -->
     <string name="feature_icon">Icon</string>
     <string name="feature_icon_desc">Icon style, size and retrieval method</string>
+    <string name="feature_bottom">Bottom</string>
+    <string name="feature_bottom_desc">Options for the bottom branding image</string>
     <string name="feature_background">Background</string>
     <string name="feature_background_desc">Replace the SplashScreen background color</string>
     <string name="feature_animation">Animation</string>
@@ -84,12 +87,27 @@
     <!-- Icon page -->
     <string name="draw_round_corner">Round icon corners</string>
     <string name="draw_round_corner_desc">Draw rounded corners on the icon shown on the SplashScreen</string>
-    <string name="shrink_icon">Shrink icon</string>
-    <string name="shrink_icon_desc">Shrinks the startup icon to the standard size; can be combined with a blurred background</string>
-    <string name="not_shrink_icon">Do not shrink</string>
-    <string name="shrink_all_icon">Shrink all icons</string>
-    <string name="morph_shape">Morph-shaped loading indicator</string>
-    <string name="morph_shape_desc">Play the Material 3 Expressive morph loading indicator behind the icon</string>
+    <string name="icon_size">Icon size</string>
+    <string name="icon_size_desc">Change the icon size</string>
+    <string name="value_input_hint">Enter a value</string>
+    <string name="morph_shape">Loading animation</string>
+    <string name="morph_shape_desc">Choose the loading animation shown on the splash screen</string>
+    <string name="loading_anim_off">Disabled</string>
+    <string name="loading_anim_shape">Geometric shapes</string>
+    <string name="loading_anim_bar">Loading bar</string>
+    <string name="loading_bar_length">Loading bar length</string>
+    <string name="loading_bar_length_desc">Width of the loading bar</string>
+    <string name="loading_bar_thickness">Loading bar thickness</string>
+    <string name="loading_bar_thickness_desc">Thickness of the loading bar</string>
+    <string name="offset_value">%1$d dp</string>
+    <string name="icon_offset_x">Icon horizontal offset</string>
+    <string name="icon_offset_x_desc">Horizontal offset of the icon from its original position (default 0)</string>
+    <string name="icon_offset_y">Icon vertical offset</string>
+    <string name="icon_offset_y_desc">Vertical offset of the icon from its original position (default 0)</string>
+    <string name="indicator_offset_x">Indicator horizontal offset</string>
+    <string name="indicator_offset_x_desc">Horizontal offset of the loading indicator from its original position (default 0)</string>
+    <string name="indicator_offset_y">Indicator vertical offset</string>
+    <string name="indicator_offset_y_desc">Vertical offset of the loading indicator from its original position (default 0)</string>
     <string name="morph_shape_size">Indicator size</string>
     <string name="morph_shape_size_desc">Indicator diameter as a multiple of the icon size</string>
     <string name="morph_shape_size_value">%.2f×</string>
@@ -104,7 +122,7 @@
     <string name="change_bg_color">Replace background color</string>
     <string name="not_change_bg_color">Do not replace background color</string>
     <string name="from_icon">Sample from icon</string>
-    <string name="from_monet">Material You dynamic color</string>
+    <string name="from_monet">Follow system color</string>
     <string name="from_custom">Custom color</string>
     <string name="color_mode">Color mode</string>
     <string name="light_color">Light</string>
@@ -120,9 +138,47 @@
     <!-- Miscellaneous page -->
     <string name="misc_placeholder">Coming soon</string>
     <string name="remove_icon">Remove icon</string>
-    <string name="remove_icon_desc">Hide every icon on the SplashScreen, including the branding image at the bottom</string>
+    <string name="remove_icon_desc">Hide the app icon on the SplashScreen</string>
+    <string name="remove_branding_image">Remove bottom image</string>
+    <string name="remove_branding_image_desc">Hide the branding image at the bottom of the SplashScreen</string>
+
+    <!-- Bottom page · app name -->
+    <string name="group_app_name">App name</string>
+    <string name="show_app_name">Show app name</string>
+    <string name="show_app_name_desc">Show the app name on the SplashScreen</string>
+    <string name="app_name_text_size">Text size</string>
+    <string name="app_name_text_size_desc">Font size of the app name</string>
+    <string name="app_name_text_size_value">%1$d sp</string>
+    <string name="app_name_offset_x">Horizontal offset</string>
+    <string name="app_name_offset_x_desc">Horizontal offset of the app name from its default position (default 0)</string>
+    <string name="app_name_offset_y">Vertical offset</string>
+    <string name="app_name_offset_y_desc">Vertical offset of the app name from its default position (default 0)</string>
+    <string name="app_name_color">Color</string>
+    <string name="app_name_color_desc">Color source for the app name</string>
+    <string name="app_name_color_icon">Follow icon color</string>
+    <string name="app_name_color_custom">Custom color</string>
+    <string name="app_name_color_system">Follow system color</string>
+    <string name="app_name_custom_color">Custom color</string>
+    <string name="app_name_position">Display position</string>
+    <string name="app_name_position_desc">Change the default display position</string>
+    <string name="app_name_position_below_icon">Directly below the icon</string>
+    <string name="app_name_position_bottom">Bottom</string>
+    <string name="app_name_font_weight">Font weight</string>
+    <string name="app_name_font_weight_desc">Font weight of the app name (100-900)</string>
+    <string name="app_name_use_english">Use English text</string>
+    <string name="app_name_use_english_desc">Use the English name when the app provides it, otherwise the default</string>
+    <string name="app_name_font">Custom font</string>
+    <string name="app_name_font_none">Not selected</string>
+    <string name="app_name_font_clear">Clear custom font</string>
+    <string name="app_name_font_failed">Failed to load font</string>
     <string name="enable_hot_start_splash">Apply SplashScreen to warm starts</string>
     <string name="enable_hot_start_splash_desc">Also show the SplashScreen when an app is restored from the background, instead of using its task snapshot</string>
+    <string name="min_splash_show">Custom minimum splash duration</string>
+    <string name="min_splash_show_desc">This may slow down app startup</string>
+    <string name="min_splash_show_ms">Duration</string>
+    <string name="min_splash_show_ms_desc">Enter the value in milliseconds</string>
+    <string name="min_splash_show_warn_title">Large value</string>
+    <string name="min_splash_show_warn_message">This value is large and will noticeably slow down app launches. Set it anyway?</string>
 
     <!-- About -->
     <string name="module_version">Module version</string>
@@ -131,6 +187,8 @@
     <string name="coming_soon">Coming soon</string>
     <string name="module_author">Module author</string>
     <string name="coolapk_homepage">Coolapk profile</string>
+    <string name="telegram_group">Group link</string>
+    <string name="telegram_group_desc">Telegram group</string>
 
     <!-- About hero (top of the About page) -->
     <string name="about_hero_title">CSE</string>

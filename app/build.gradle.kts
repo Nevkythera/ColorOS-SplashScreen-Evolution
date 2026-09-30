@@ -14,8 +14,8 @@ android {
         applicationId = "com.Nevkythera.ColorOSSplashScreenEvolution"
         minSdk = 35
         targetSdk = 36
-        versionCode = 117
-        versionName = "1.1 Mid-Autumn"
+        versionCode = 149
+        versionName = "1.2"
 
         // 仅打包 arm64-v8a 原生库
         ndk {

@@ -8,7 +8,7 @@
     <string name="activated">已激活</string>
     <string name="module_not_activated">模块未激活</string>
     <string name="root_not_available">Root 权限不可用</string>
-    <string name="activation_hint">请在 LSPosed 中启用本模块，并勾选作用域：com.android.systemui、系统框架（android）</string>
+    <string name="activation_hint">请在 LSPosed 中启用本模块，并勾选作用域：com.android.systemui、系统框架</string>
 
     <!-- 分组标题 -->
     <string name="group_app_config">应用配置</string>
@@ -19,6 +19,7 @@
     <string name="group_device_info">设备信息</string>
     <string name="group_general">一般</string>
     <string name="group_personalize">个性化</string>
+    <string name="group_branding">品牌图</string>
     <string name="group_credits">鸣谢</string>
 
     <!-- 底部页签 -->
@@ -38,12 +39,14 @@
     <!-- 模块功能 -->
     <string name="force_native_sc">总开关</string>
     <string name="force_native_sc_desc">强制使用 Android 原生 Splash Screen API</string>
-    <string name="disable_snapshot_overlay">关闭截图覆盖</string>
-    <string name="disable_snapshot_overlay_desc">忽略应用自带的启动图，改为显示系统原生大图标</string>
+    <string name="disable_snapshot_overlay">忽略应用自带图标</string>
+    <string name="disable_snapshot_overlay_desc">忽略应用自带的启动图标或图标动画，改用系统原生大图标</string>
 
     <!-- 功能入口 -->
     <string name="feature_icon">图标</string>
     <string name="feature_icon_desc">图标样式、尺寸与获取方式</string>
+    <string name="feature_bottom">底部</string>
+    <string name="feature_bottom_desc">底部品牌图相关设置</string>
     <string name="feature_background">背景</string>
     <string name="feature_background_desc">替换启动遮罩背景颜色</string>
     <string name="feature_animation">动画</string>
@@ -69,12 +72,27 @@
     <!-- 图标页 -->
     <string name="draw_round_corner">绘制图标圆角</string>
     <string name="draw_round_corner_desc">为启动遮罩上的图标绘制圆角</string>
-    <string name="shrink_icon">缩小图标</string>
-    <string name="shrink_icon_desc">把启动图标缩小到规范尺寸，可与模糊背景配合使用</string>
-    <string name="not_shrink_icon">不缩小</string>
-    <string name="shrink_all_icon">缩小全部图标</string>
-    <string name="morph_shape">几何形变加载动画</string>
-    <string name="morph_shape_desc">在图标背后播放 Material 3 Expressive 几何形变加载动画</string>
+    <string name="icon_size">图标大小</string>
+    <string name="icon_size_desc">更改图标大小</string>
+    <string name="value_input_hint">输入数值</string>
+    <string name="morph_shape">加载动画</string>
+    <string name="morph_shape_desc">选择启动遮罩上的加载动画效果</string>
+    <string name="loading_anim_off">不启用</string>
+    <string name="loading_anim_shape">几何图形</string>
+    <string name="loading_anim_bar">加载条</string>
+    <string name="loading_bar_length">加载条长度</string>
+    <string name="loading_bar_length_desc">加载条的宽度</string>
+    <string name="loading_bar_thickness">加载条粗细</string>
+    <string name="loading_bar_thickness_desc">加载条的厚度</string>
+    <string name="offset_value">%1$d dp</string>
+    <string name="icon_offset_x">图标水平位移</string>
+    <string name="icon_offset_x_desc">图标相对原位置的水平偏移（默认 0）</string>
+    <string name="icon_offset_y">图标垂直位移</string>
+    <string name="icon_offset_y_desc">图标相对原位置的垂直偏移（默认 0）</string>
+    <string name="indicator_offset_x">指示器水平位移</string>
+    <string name="indicator_offset_x_desc">加载动画指示器相对原位置的水平偏移（默认 0）</string>
+    <string name="indicator_offset_y">指示器垂直位移</string>
+    <string name="indicator_offset_y_desc">加载动画指示器相对原位置的垂直偏移（默认 0）</string>
     <string name="morph_shape_size">指示器大小</string>
     <string name="morph_shape_size_desc">指示器直径相对于图标的倍率</string>
     <string name="morph_shape_size_value">%.2f×</string>
@@ -89,7 +107,7 @@
     <string name="change_bg_color">替换背景颜色</string>
     <string name="not_change_bg_color">不替换背景颜色</string>
     <string name="from_icon">从图标取色</string>
-    <string name="from_monet">Material You 动态取色</string>
+    <string name="from_monet">跟随系统取色</string>
     <string name="from_custom">自定义颜色</string>
     <string name="color_mode">颜色模式</string>
     <string name="light_color">浅色</string>
@@ -105,9 +123,47 @@
     <!-- 杂项页 -->
     <string name="misc_placeholder">敬请期待</string>
     <string name="remove_icon">移除图标</string>
-    <string name="remove_icon_desc">隐藏启动遮罩上的全部图标（含底部品牌图）</string>
+    <string name="remove_icon_desc">隐藏启动遮罩上的应用图标</string>
+    <string name="remove_branding_image">移除底部图片</string>
+    <string name="remove_branding_image_desc">隐藏启动遮罩底部的品牌图</string>
+
+    <!-- 底部页 · 应用名称 -->
+    <string name="group_app_name">应用名称</string>
+    <string name="show_app_name">显示应用名称</string>
+    <string name="show_app_name_desc">在启动遮罩上显示被启动应用的名称</string>
+    <string name="app_name_text_size">文本大小</string>
+    <string name="app_name_text_size_desc">应用名称的字号</string>
+    <string name="app_name_text_size_value">%1$d sp</string>
+    <string name="app_name_offset_x">水平偏移</string>
+    <string name="app_name_offset_x_desc">应用名称相对默认位置的水平偏移（默认 0）</string>
+    <string name="app_name_offset_y">垂直偏移</string>
+    <string name="app_name_offset_y_desc">应用名称相对默认位置的垂直偏移（默认 0）</string>
+    <string name="app_name_color">颜色</string>
+    <string name="app_name_color_desc">应用名称的取色来源</string>
+    <string name="app_name_color_icon">跟随图标取色</string>
+    <string name="app_name_color_custom">自定义颜色</string>
+    <string name="app_name_color_system">跟随系统取色</string>
+    <string name="app_name_custom_color">自定义颜色</string>
+    <string name="app_name_position">显示位置</string>
+    <string name="app_name_position_desc">更改默认显示位置</string>
+    <string name="app_name_position_below_icon">图标正下方</string>
+    <string name="app_name_position_bottom">底部</string>
+    <string name="app_name_font_weight">文字粗细</string>
+    <string name="app_name_font_weight_desc">应用名称的字重（100~900）</string>
+    <string name="app_name_use_english">使用英语文本</string>
+    <string name="app_name_use_english_desc">应用支持英语时显示英文名称，否则使用默认</string>
+    <string name="app_name_font">自定义字体</string>
+    <string name="app_name_font_none">未选择</string>
+    <string name="app_name_font_clear">清除自定义字体</string>
+    <string name="app_name_font_failed">字体加载失败</string>
     <string name="enable_hot_start_splash">热启动也适用启动遮罩</string>
     <string name="enable_hot_start_splash_desc">应用从后台恢复时同样显示启动遮罩，而非直接使用任务快照</string>
+    <string name="min_splash_show">自定义最小遮罩显示时长</string>
+    <string name="min_splash_show_desc">这可能会拖慢启动速度</string>
+    <string name="min_splash_show_ms">显示时长</string>
+    <string name="min_splash_show_ms_desc">以毫秒为单位直接输入数值</string>
+    <string name="min_splash_show_warn_title">数值偏大</string>
+    <string name="min_splash_show_warn_message">该数值较大，会明显拖慢进入应用的速度。确定要设置为该值吗？</string>
 
     <!-- 关于 -->
     <string name="module_version">模块版本</string>
@@ -116,6 +172,8 @@
     <string name="coming_soon">敬请期待</string>
     <string name="module_author">模块作者</string>
     <string name="coolapk_homepage">酷安主页链接</string>
+    <string name="telegram_group">群组链接</string>
+    <string name="telegram_group_desc">Telegram群组</string>
 
     <!-- 应用展示区（关于页顶部） -->
     <string name="about_hero_title">COS遮罩进化</string>

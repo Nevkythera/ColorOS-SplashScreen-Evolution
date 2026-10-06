@@ -5,6 +5,10 @@
 一个针对 ColorOS 的**启动遮罩（SplashScreen）还原与自定义模块**，把被 ColorOS
 改写成 XML 预览图的开机画面还原为 Android 原生启动遮罩，并提供图标、背景与退出动画的自定义能力。
 
+⚠️注意：此项目于CSEv1.2版本切换为闭源项目，后续版本将不再提供源代码，但仍然会发布release版本。（由于圈内的部分人影响，不得不选择暂时无限期闭源）
+
+🐦🐦CSE App 将永久保持免费，不会向用户收取费用，以及索取隐私信息，更不会使用敏感权限。
+
 此项目使用AI辅助制作，虽能保证不包含人工输入的恶意代码，但无法保证AI产生的代码符合预期效果。
 
 模块灵感源于[RestoreSplashScreen / 启动遮罩进化](https://github.com/GSWXXN/RestoreSplashScreen/tree/Compose)对SplashScreen的高度自定义展现的可能性。
